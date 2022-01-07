@@ -1,0 +1,45 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.gcno
+*.gcda
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Log file
+*.log
+
+# Targets directory
+bin/
+
+# Vscode setting
+.vscode/
+
+# Clang-format
+.clang-format
+
+# MAC metadata
+.DS_Store

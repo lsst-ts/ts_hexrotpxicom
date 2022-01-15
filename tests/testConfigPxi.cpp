@@ -61,27 +61,3 @@ TEST_F(ConfigPxiTest, configPxiGetValDouble) {
 TEST_F(ConfigPxiTest, configPxiGetValInt) {
     EXPECT_EQ(2, configPxi_getValInt("VAL_INTEGER"));
 }
-
-TEST_F(ConfigPxiTest, configPxiSetServerInfoDds) {
-    serverInfo_t serverInfo;
-    configPxi_setServerInfoDds(&serverInfo);
-
-    EXPECT_EQ(AF_INET, serverInfo.family);
-    EXPECT_EQ(5571, serverInfo.cmdPort);
-    EXPECT_EQ(5570, serverInfo.tlmPort);
-    EXPECT_EQ(20, serverInfo.tlmSendRate);
-    EXPECT_EQ(100, serverInfo.timeout);
-    EXPECT_EQ(20, serverInfo.maxNumQueueTel);
-}
-
-TEST_F(ConfigPxiTest, configPxiSetServerInfoGui) {
-    serverInfo_t serverInfo;
-    configPxi_setServerInfoGui(&serverInfo);
-
-    EXPECT_EQ(AF_INET, serverInfo.family);
-    EXPECT_EQ(5581, serverInfo.cmdPort);
-    EXPECT_EQ(5580, serverInfo.tlmPort);
-    EXPECT_EQ(20, serverInfo.tlmSendRate);
-    EXPECT_EQ(100, serverInfo.timeout);
-    EXPECT_EQ(20, serverInfo.maxNumQueueTel);
-}

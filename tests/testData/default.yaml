@@ -1,34 +1,6 @@
 ---
-# Default setting
-
 # Double value
 VAL_DOUBLE: 1.2
 
 # Integer value
 VAL_INTEGER: 2
-
-# Data distribution service (DDS) server telemetry port
-SERVER_PORT_TLM_DDS: 5570
-
-# Data distribution service (DDS) server command port
-SERVER_PORT_CMD_DDS: 5571
-
-# Graphical user interface (GUI) server telemetry port
-SERVER_PORT_TLM_GUI: 5580
-
-# Graphical user interface (GUI) server command port
-SERVER_PORT_CMD_GUI: 5581
-
-# Telemetry rate of GUI server in Hz. The value should be in (0, 20].
-TLM_RATE_GUI: 20
-
-# Telemetry rate of DDS server in Hz. The value should be in (0, 20].
-TLM_RATE_DDS: 20
-
-# Timeout for blocking call in millisecond.
-# The value should be integer (>0).
-TIMEOUT_NONBLOCK: 100
-
-# Maximum number of telemetry messages that can be queued for send at
-# once.
-MAX_NUM_QUEUE_TEL: 20

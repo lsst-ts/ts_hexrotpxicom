@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <yaml.h>
 
 #include "utility.h"
@@ -105,24 +104,4 @@ int configPxi_getValInt(char *pSettingName) {
     pStrSetting = NULL;
 
     return val;
-}
-
-void configPxi_setServerInfoDds(serverInfo_t *pServerInfo) {
-    pServerInfo->family = AF_INET;
-    pServerInfo->cmdPort = configPxi_getValInt("SERVER_PORT_CMD_DDS");
-    pServerInfo->tlmPort = configPxi_getValInt("SERVER_PORT_TLM_DDS");
-    pServerInfo->tlmSendRate = configPxi_getValInt("TLM_RATE_DDS");
-    pServerInfo->timeout = configPxi_getValInt("TIMEOUT_NONBLOCK");
-    pServerInfo->maxNumQueueTel =
-        (long)configPxi_getValInt("MAX_NUM_QUEUE_TEL");
-}
-
-void configPxi_setServerInfoGui(serverInfo_t *pServerInfo) {
-    pServerInfo->family = AF_INET;
-    pServerInfo->cmdPort = configPxi_getValInt("SERVER_PORT_CMD_GUI");
-    pServerInfo->tlmPort = configPxi_getValInt("SERVER_PORT_TLM_GUI");
-    pServerInfo->tlmSendRate = configPxi_getValInt("TLM_RATE_GUI");
-    pServerInfo->timeout = configPxi_getValInt("TIMEOUT_NONBLOCK");
-    pServerInfo->maxNumQueueTel =
-        (long)configPxi_getValInt("MAX_NUM_QUEUE_TEL");
 }

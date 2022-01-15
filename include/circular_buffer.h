@@ -34,14 +34,15 @@ cbuf_handle_t circular_buf_init(size_t size);
 // Requires: cbuf is valid and created by circular_buf_init()
 void circular_buf_free(cbuf_handle_t cbuf);
 
-// Put the data to buffer and continues to add data if the buffer is full
-// Old data is overwritten. Return true if lost data, else, false.
+// Add data to the buffer. Delete old data to make room, if necessary.
+// Return true if old data was deleted, else false.
 // Requires: cbuf is valid and created by circular_buf_init()
 // This is a thread-safe function
 bool circular_buf_put(cbuf_handle_t cbuf, commandStreamStructure_t data);
 
 // Retrieve the data from the buffer.
-// Return true if the buffer is empty, else, false.
+// Pop and return the oldest data from the buffer.
+// Return true if the buffer was empty (no data returned), false otherwise.
 // Requires: cbuf is valid and created by circular_buf_init()
 // This is a thread-safe function
 bool circular_buf_get(cbuf_handle_t cbuf, commandStreamStructure_t *data);

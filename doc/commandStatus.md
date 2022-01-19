@@ -30,12 +30,12 @@ If a command failed in the inspection before execution, the *CmdStatus_NotOK* wi
 
 If the command passes the inspection, it will be considered OK and send the *CmdStatus_OK* to CSC.
 The *duration* in **commandStatusStructure_t** will be filled with the estimated execution time in second.
-The value of 0 means the executation time is much less than 1.
+The value of 0 means the executation is done.
+For some command such as `track` in the rotator controller, it is considered done when it is acknowledged.
 
 Most commands will get a *CmdStatus_OK* when they have finished.
 The commands that take a long time to finish get a *CmdStatus_OK* when they have successfully started.
-Those are (use the rotator as an example):
+Those are:
 
 - stop: *CmdStatus_OK* when the enabled substate transitions to STOPPING or STOPPED.
 - moving point to point: *CmdStatus_OK* when the enabled substate transitions to MOVING POINT TO POINT.
-- ...(fault? constant-velocity move for the rotator, any others?)

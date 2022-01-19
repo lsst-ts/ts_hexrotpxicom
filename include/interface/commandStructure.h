@@ -49,27 +49,27 @@ typedef struct __attribute__((__packed__)) _commandStatusStructure {
 
 typedef enum {
     // Controller internal use
-    Commander_Self = 0,
+    Commander_Self = 1,
     // Graphical user interface
-    Commander_GUI = 1,
+    Commander_GUI = 2,
     // Commandable SAL component
-    Commander_CSC = 2,
+    Commander_CSC = 3,
 } Commander;
 
 typedef enum {
     // Command is OK
-    CmdStatus_OK = 0,
+    CmdStatus_OK = 1,
     // Command is not OK
-    CmdStatus_NotOK = 1,
+    CmdStatus_NotOK = 2,
 } CmdStatus;
 
 typedef enum {
-    // Telemetry
-    FrameId_Tel = 0,
     // Command status
     FrameId_CmdStatus = 1,
+    // Telemetry
+    FrameId_Tlm = 2,
     // Configuration
-    FrameId_Config = 2,
+    FrameId_Config = 3,
 } FrameId;
 
 #endif // COMMANDSTRUCTURE_H

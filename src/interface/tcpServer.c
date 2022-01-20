@@ -7,8 +7,9 @@
 #include <netdb.h>
 #include <string.h>
 #include <poll.h>
+#include <syslog.h>
 
-#include <tcpServer.h>
+#include "tcpServer.h"
 
 int tcpServer_open(int family, int port, int maxConnection) {
     // Modified from the chapter 11.4.7 in Computer Systems, A Programmer’s
@@ -113,7 +114,7 @@ int tcpServer_accept(int serverSocketDesc, int timeout) {
 
     // Print the connected IP
     char *ip = inet_ntoa(client.sin_addr);
-    printf("Get the connection from: %s.\n", ip);
+    syslog(LOG_NOTICE, "Get the connection from: %s.", ip);
 
     return socketConnect;
 }
@@ -131,7 +132,7 @@ bool tcpServer_isConnected(int socketDesc) {
     }
 
     if (error != 0) {
-        printf("Socket error: %s\n", strerror(error));
+        syslog(LOG_ERR, "Socket error: %s", strerror(error));
         return false;
     }
 
@@ -147,7 +148,7 @@ void tcpServer_close(int socketDesc) {
 int tcpServer_getSocketConnect(int family) {
     int socketDesc;
     if ((socketDesc = socket(family, SOCK_STREAM, 0)) < 0) {
-        printf("Socket creation error.\n");
+        syslog(LOG_NOTICE, "Socket creation error.");
         exit(1);
     }
 

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <syslog.h>
 
 #include "circular_buffer.h"
 
@@ -55,7 +56,7 @@ static void retreat_pointer(cbuf_handle_t cbuf) {
 // Hold the mutex lock.
 static inline void hold_lock(void) {
     if (pthread_mutex_lock(&lock) != 0) {
-        printf("Mutex lock has failed.\n");
+        syslog(LOG_ERR, "Mutex lock has failed.");
         exit(1);
     }
 }
@@ -63,7 +64,7 @@ static inline void hold_lock(void) {
 // Release the mutex lock.
 static inline void release_lock(void) {
     if (pthread_mutex_unlock(&lock) != 0) {
-        printf("Mutex unlock has failed.\n");
+        syslog(LOG_ERR, "Mutex unlock has failed.");
         exit(1);
     }
 }
@@ -92,7 +93,7 @@ cbuf_handle_t circular_buf_init(size_t size) {
 
     // Check the memory allocation is successful or not
     if ((buffer == NULL) || (cbuf == NULL)) {
-        printf("Memory not allocated.\n");
+        syslog(LOG_ERR, "Memory not allocated.");
         return NULL;
     }
 
@@ -101,7 +102,7 @@ cbuf_handle_t circular_buf_init(size_t size) {
     circular_buf_reset(cbuf);
 
     if (pthread_mutex_init(&lock, NULL) != 0) {
-        printf("Mutex init has failed.\n");
+        syslog(LOG_ERR, "Mutex init has failed.");
         exit(1);
     }
 
@@ -113,7 +114,7 @@ void circular_buf_free(cbuf_handle_t cbuf) {
     free(cbuf);
 
     if (pthread_mutex_destroy(&lock) != 0) {
-        printf("Mutex destroy has failed.\n");
+        syslog(LOG_ERR, "Mutex destroy has failed.");
         exit(1);
     }
 }

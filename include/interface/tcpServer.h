@@ -10,7 +10,7 @@
 // If error, return -1.
 int tcpServer_open(int family, int port, int maxConnection);
 
-// Accept the connection request with timeout millisecond. If timeout <= 0,
+// Accept the connection request with timeout in millisecond. If timeout <= 0,
 // means no timeout. In this case, the function will block forever until the
 // acceptance of a connection request.
 // Return the connected socket. If fail, return -1.

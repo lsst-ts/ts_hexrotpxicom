@@ -48,12 +48,12 @@ typedef struct __attribute__((__packed__)) _commandStatusStructure {
 } commandStatusStructure_t;
 
 typedef enum {
-    // Controller internal use
-    Commander_Self = 1,
     // Graphical user interface
-    Commander_GUI = 2,
+    Commander_GUI = 1,
     // Commandable SAL component
-    Commander_CSC = 3,
+    Commander_CSC = 2,
+    // Controller internal use
+    Commander_Self = 3,
 } Commander;
 
 typedef enum {

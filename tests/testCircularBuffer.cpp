@@ -1,3 +1,5 @@
+#include <syslog.h>
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,9 +11,17 @@ struct CircularBufferTest : testing::Test {
     int bufferSize = 5;
     cbuf_handle_t cbuf;
 
-    CircularBufferTest() { cbuf = circular_buf_init(bufferSize); }
+    CircularBufferTest() {
+        cbuf = circular_buf_init(bufferSize);
 
-    ~CircularBufferTest() { circular_buf_free(cbuf); }
+        openlog("CircularBuffer", LOG_CONS, LOG_SYSLOG);
+    }
+
+    ~CircularBufferTest() {
+        circular_buf_free(cbuf);
+
+        closelog();
+    }
 };
 
 TEST(CircularBuffer, circularBufInit) { EXPECT_EQ(NULL, circular_buf_init(0)); }

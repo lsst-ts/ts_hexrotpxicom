@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <yaml.h>
+#include <syslog.h>
 
 #include "utility.h"
 #include "configPxi.h"
@@ -43,7 +44,7 @@ char *configPxi_getSetting(const char *pFilePath, const char *pSettingName) {
         while (true) {
 
             if (yaml_parser_parse(&parser, &event) == 0) {
-                printf("Parser error: %d\n", parser.error);
+                syslog(LOG_ERR, "Parser error: %d", parser.error);
                 exit(EXIT_FAILURE);
             }
             type = event.type;

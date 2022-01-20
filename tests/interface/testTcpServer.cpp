@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include "gtest/gtest.h"
 
@@ -22,12 +23,16 @@ struct TcpServerTest : testing::Test {
         port = 8888;
         maxConnection = 1;
         socketListen = -1;
+
+        openlog("TcpServer", LOG_CONS, LOG_SYSLOG);
     }
 
     ~TcpServerTest() {
         if (socketListen >= 0) {
             tcpServer_close(socketListen);
         }
+
+        closelog();
     }
 };
 

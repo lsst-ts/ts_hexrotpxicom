@@ -163,7 +163,7 @@ TEST_F(CmdTlmServerTest, init) {
     EXPECT_NE(-1, serverInfo.socketListen);
     EXPECT_EQ(-1, serverInfo.socketConnect);
 
-    EXPECT_FALSE(serverInfo.isStart);
+    EXPECT_FALSE(serverInfo.isReady);
     EXPECT_EQ(ServerStatus_Disconnected, serverInfo.serverStatus);
 
     EXPECT_STREQ("/queueCmdStatus8888", serverInfo.pQueueNameCmdStatus);

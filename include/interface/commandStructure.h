@@ -52,7 +52,9 @@ typedef enum {
     Commander_GUI = 1,
     // Commandable SAL component
     Commander_CSC = 2,
-    // Controller internal use
+    // Controller internal use. This is used in the hexapod controller code to
+    // hack the Simulink model. This value should be removed after fixing the
+    // hexapod Simulink model.
     Commander_Self = 3,
 } Commander;
 

@@ -59,8 +59,8 @@ void cmdTlmServer_close(serverInfo_t *pServerInfo) {
     syslog(LOG_NOTICE, "Closing the %s server.", pServerInfo->pName);
 
     int error = 0;
-    if (pServerInfo->isStart) {
-        pServerInfo->isStart = false;
+    if (pServerInfo->isReady) {
+        pServerInfo->isReady = false;
         error = pthread_join(pServerInfo->thread, NULL);
     }
 
@@ -85,7 +85,7 @@ static void cmdTlmServer_initServerInfo(serverInfo_t *pServerInfo, char *pName,
     pServerInfo->socketListen = -1;
     pServerInfo->socketConnect = -1;
 
-    pServerInfo->isStart = false;
+    pServerInfo->isReady = false;
     pServerInfo->serverStatus = ServerStatus_Disconnected;
 
     pServerInfo->pQueueNameCmdStatus = "";
@@ -281,7 +281,7 @@ static void *cmdTlmServer_run(void *pData) {
     serverInfo_t *pServerInfo = (serverInfo_t *)pData;
 
     // Wait until begins to run the server's job
-    while (!pServerInfo->isStart) {
+    while (!pServerInfo->isReady) {
         sleep(1);
     }
 
@@ -301,7 +301,7 @@ static void *cmdTlmServer_run(void *pData) {
 
     // Run the server
     int error;
-    while (pServerInfo->isStart) {
+    while (pServerInfo->isReady) {
 
         // New command message
         commandStreamStructure_t cmdMsg;
@@ -422,7 +422,7 @@ int cmdTlmServer_runInNewThread(serverInfo_t *pServerInfo) {
             pthread_exit(&pServerInfo->thread);
             return -1;
         }
-        pServerInfo->isStart = true;
+        pServerInfo->isReady = true;
     }
 
     return 0;

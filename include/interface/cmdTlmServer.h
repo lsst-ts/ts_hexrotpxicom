@@ -9,12 +9,14 @@
 #include "circular_buffer.h"
 
 typedef struct _serverInfo {
-    // Pointer of the server name
+    // Server name
     char *pName;
     // Timeout for blocking call in millisecond. If -1, means never timeout.
     int timeout;
-    // Size of the telemetry message in byte. If there are multiple telemetry
-    // structures, use the biggest size.
+    // The maximum size of data structure that will be received from controller,
+    // in bytes. The received data will be sent to the TCP/IP client.
+    // For the telemetry, this is the size of the configuration or telemetry
+    // struct, whichever is larger.
     unsigned int sizeMsgTlm;
     // Socket to listen to the connection request
     int socketListen;
@@ -22,23 +24,23 @@ typedef struct _serverInfo {
     int socketConnect;
     // Thread to run the server
     pthread_t thread;
-    // Is started to listen to the command and write the telemetry or not.
+    // Is ready to listen to the command and write the telemetry or not.
     // This value is set to be true when the thread is ready, false when the
     // software is ready to close the server.
-    bool isStart;
+    bool isReady;
     // Server status with the enum 'ServerStatus'
     int serverStatus;
-    // Pointer of the name of command status queue
+    // Pointer to the name of command status queue
     char *pQueueNameCmdStatus;
     // Message queue of the command status
     mqd_t msgQueueCmdStatus;
-    // Pointer of the command status used in message queue
+    // Pointer to the command status used in message queue
     gpointer *pMsgCmdStatus;
-    // Pointer of the name of telemetry queue
+    // Pointer to the name of telemetry queue
     char *pQueueNameTlm;
     // Message queue of the telemetry
     mqd_t msgQueueTlm;
-    // Pointer of the telemetry message in message queue
+    // Pointer to the telemetry message in message queue
     gpointer *pMsgTlm;
     // Is the commander or not
     bool isCommander;
@@ -57,7 +59,7 @@ typedef enum {
 
 // Initialize the server.
 // The user needs to provide the following inputs:
-// - pName: Pointer of the server name
+// - pName: Pointer to the server name
 // - timeout: Timeout for blocking call in millisecond. If the value is <=0,
 //            it will be reset to be -1 internally, which means never timeout.
 // - sizeMsgTlm: Size of the telemetry message in byte.
@@ -82,11 +84,14 @@ void cmdTlmServer_basicClose(serverInfo_t *pServerInfo);
 // Close the server thoroughly. This is used in the shutdown process.
 void cmdTlmServer_close(serverInfo_t *pServerInfo);
 
-// Sent the command status to message queue with the inputs of server
-// information, counter, command status (enum: CmdStatus), estimated duration of
-// command in second, and reason if the command failed (put "" if nothing to
-// report). If "reason" is longer than the buffer defined in
-// commandStatusStructure_t, it will be truncated to fit.
+// Send a command status to the message queue. The arguments are:
+// - server information
+// - counter value of command being acknowledged
+// - command status (enum: 'CmdStatus')
+// - estimated duration (seconds); 0 if already done
+// - reason the command failed... (put "" if nothing to report. If "reason" is
+//   longer than the buffer defined in commandStatusStructure_t, it will be
+//   truncated to fit.)
 // Return 0 if success, otherwise, return -1.
 int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
                                          unsigned int counter,

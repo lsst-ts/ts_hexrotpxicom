@@ -180,7 +180,7 @@ static int cmdTlmServer_prepareMsgQueue(serverInfo_t *pServerInfo,
 // message will be written to the memory pointed to by pCmdMsg.
 // Return the error status or the received number of byte.
 // If the return value < 0, it means the timeout from poll() or error from
-// poll() or recv().
+// poll() or recv(). If 0, it means the client closed the connection.
 // Note. If we do not set the timeout when using the recv(), the server may not
 // be able to close this thread because the recv() is a blocking call.
 static int cmdTlmServer_recv(commandStreamStructure_t *pCmdMsg,
@@ -195,8 +195,13 @@ static int cmdTlmServer_recv(commandStreamStructure_t *pCmdMsg,
     return recv(pFds->fd, pCmdMsg, sizeof(commandStreamStructure_t), 0);
 }
 
-// Send the last command status in message queue if any.
-// Return 0 if sending successfully. Else, -1.
+// Pop the oldest command status message from the message queue, if one is
+// available, and send it to the client, which depends on 'pServerInfo' (can be
+// CSC or GUI).
+// Return 0 if there was no message, or there was a message and it was sent
+// successfully.
+// Return -1 if there was a message and sending failed because the socket was
+// closed. The message will still be popped from the message queue.
 static int cmdTlmServer_sendLastCmdStateInMsgQueue(serverInfo_t *pServerInfo) {
     int bytesReceived = mq_receive(pServerInfo->msgQueueCmdStatus,
                                    (char *)pServerInfo->pMsgCmdStatus,
@@ -255,7 +260,7 @@ static bool cmdTlmServer_isCmdAuthorized(commandStatusStructure_t *pCmdStatus,
     // Check the commander is from CSC/GUI or not
     if (isCmdAuthorized && !((pCmdMsg->commander == Commander_GUI) ||
                              (pCmdMsg->commander == Commander_CSC))) {
-        reasonCmdFail = "Invalid commander";
+        reasonCmdFail = "Unrecognized commander; must be one of GUI or CSC";
         isCmdAuthorized = false;
     }
 
@@ -263,7 +268,7 @@ static bool cmdTlmServer_isCmdAuthorized(commandStatusStructure_t *pCmdStatus,
     // For the GUI, it can always give the command
     if (isCmdAuthorized && !isCommander &&
         (pCmdMsg->commander == Commander_CSC)) {
-        reasonCmdFail = "Is not the commander";
+        reasonCmdFail = "The CSC is not the commander";
         isCmdAuthorized = false;
     }
 
@@ -309,6 +314,7 @@ static void *cmdTlmServer_run(void *pData) {
 
     // Run the server
     int error;
+    int nbytes;
     while (pServerInfo->isReady) {
 
         // New command message
@@ -344,30 +350,28 @@ static void *cmdTlmServer_run(void *pData) {
             // Reply the last command status from commanding.c
             error = cmdTlmServer_sendLastCmdStateInMsgQueue(pServerInfo);
 
-            // We were connected but the connection has been broken
+            // If sending failed, close the connection
             if (error < 0) {
                 cmdTlmServer_closeConn(pServerInfo, &fds);
                 break;
             }
 
             // Check the new command
-            error = cmdTlmServer_recv(&cmdMsg, &fds, pServerInfo->timeout);
+            nbytes = cmdTlmServer_recv(&cmdMsg, &fds, pServerInfo->timeout);
 
             // Ignore the timeout or error
-            if (error < 0) {
+            if (nbytes < 0) {
                 break;
             }
 
             // Client closes the connection
-            if (error == 0) {
+            if (nbytes == 0) {
                 cmdTlmServer_closeConn(pServerInfo, &fds);
                 break;
             }
 
-            // Check the command is authorized or not
             bool isCmdAuthorized = cmdTlmServer_isCmdAuthorized(
                 &cmdStatus, &cmdMsg, pServerInfo->isCommander);
-
             if (isCmdAuthorized) {
                 // Write command to command message buffer
                 if (circular_buf_put(pServerInfo->cmdMsgBuffer, cmdMsg)) {

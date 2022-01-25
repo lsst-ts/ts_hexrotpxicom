@@ -152,5 +152,7 @@ int tcpServer_getSocketConnect(int family) {
         exit(1);
     }
 
+    syslog(LOG_NOTICE, "Create the socket: %d.", socketDesc);
+
     return socketDesc;
 }

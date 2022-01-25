@@ -57,7 +57,8 @@ static void *startClient(void *pServerData) {
     EXPECT_EQ(cmdMsg.counter, cmdStatus.header.counter);
     EXPECT_EQ(CmdStatus_NotOK, cmdStatus.cmdStatus);
     EXPECT_DOUBLE_EQ(0, cmdStatus.duration);
-    EXPECT_STREQ("Invalid commander", cmdStatus.reason);
+    EXPECT_STREQ("Unrecognized commander; must be one of GUI or CSC",
+                 cmdStatus.reason);
 
     // Get the NotOK if not the commander
     cmdMsg.commander = Commander_CSC;
@@ -67,7 +68,7 @@ static void *startClient(void *pServerData) {
 
     EXPECT_EQ(sizeof(commandStatusStructure_t), msgSize);
     EXPECT_EQ(CmdStatus_NotOK, cmdStatus.cmdStatus);
-    EXPECT_STREQ("Is not the commander", cmdStatus.reason);
+    EXPECT_STREQ("The CSC is not the commander", cmdStatus.reason);
 
     // GUI can always give a command
     cmdMsg.commander = Commander_GUI;

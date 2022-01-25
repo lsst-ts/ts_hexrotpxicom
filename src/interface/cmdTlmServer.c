@@ -102,6 +102,9 @@ static void cmdTlmServer_initServerInfo(serverInfo_t *pServerInfo, char *pName,
 }
 
 // Generate the name of message queue with the base name and identifier.
+// The identifier is needed if we have multiple servers such as GUI and CSC.
+// At that time, we can use the port to be the identifier to have the unique
+// name for different servers.
 // Return the name.
 static char *cmdTlmServer_genNameMsgQueue(char *pNameBase, int identifier) {
     // Allocate the enough size of string buffer (10 is a random chosen value)
@@ -136,15 +139,16 @@ static int cmdTlmServer_prepareMsgQueue(serverInfo_t *pServerInfo,
 
     // Message queue of comomand status
 
-    // Note that the value of 4 is a random number. I expect there will be only
-    // 1 in the real running.
+    // Note that the value of 4 is a random number, which is used for: the Max.
+    // # of messages on the queue.
     // The value here is just by try-and-error. If this value is too big, the
     // kernel will reject it for the memory allocation.
     // It is noted that the kernel will restrict the allocated memory for the
     // message queue. Therefore, this value can not be too big.
-    pServerInfo->msgQueueCmdStatus =
-        cmdTlmServer_createMsgQueue(4, (long)sizeof(commandStatusStructure_t),
-                                    pServerInfo->pQueueNameCmdStatus);
+    long MAX_NUM_MSG_CMD_STATUS = 4;
+    pServerInfo->msgQueueCmdStatus = cmdTlmServer_createMsgQueue(
+        MAX_NUM_MSG_CMD_STATUS, (long)sizeof(commandStatusStructure_t),
+        pServerInfo->pQueueNameCmdStatus);
     if (pServerInfo->msgQueueCmdStatus == (mqd_t)(-1)) {
         syslog(LOG_ERR, "Failed to create the message queue of command status "
                         "in %s server.",
@@ -235,31 +239,35 @@ static void cmdTlmServer_closeConn(serverInfo_t *pServerInfo,
            pServerInfo->pName);
 }
 
-// Check the command message (pCmdMsg) is valid or not. The status of command
-// will be filled in pCmdStatus if the command is invalid. This function will
-// check the commander as well.
-// Return true if valid. Else, false.
-static bool cmdTlmServer_isCmdValid(commandStatusStructure_t *pCmdStatus,
-                                    commandStreamStructure_t *pCmdMsg,
-                                    bool isCommander) {
+// Check if the command ('pCmdMsg') is authorized or not.
+// Return true if authorized, return false and fill in 'pCmdStatus' if not.
+// Commands from the GUI are always authorized.
+// Commands from the CSC are only authorized if the CSC has control.
+// Commands with an invalid commander field are never authorized.
+// User needs to fill in the information that this server is the commander or
+// not by 'isCommander'.
+static bool cmdTlmServer_isCmdAuthorized(commandStatusStructure_t *pCmdStatus,
+                                         commandStreamStructure_t *pCmdMsg,
+                                         bool isCommander) {
     char *reasonCmdFail = "";
-    bool isCmdValid = true;
+    bool isCmdAuthorized = true;
 
     // Check the commander is from CSC/GUI or not
-    if (isCmdValid && !((pCmdMsg->commander == Commander_GUI) ||
-                        (pCmdMsg->commander == Commander_CSC))) {
+    if (isCmdAuthorized && !((pCmdMsg->commander == Commander_GUI) ||
+                             (pCmdMsg->commander == Commander_CSC))) {
         reasonCmdFail = "Invalid commander";
-        isCmdValid = false;
+        isCmdAuthorized = false;
     }
 
     // Check the CSC is the commander or not
     // For the GUI, it can always give the command
-    if (isCmdValid && !isCommander && (pCmdMsg->commander == Commander_CSC)) {
+    if (isCmdAuthorized && !isCommander &&
+        (pCmdMsg->commander == Commander_CSC)) {
         reasonCmdFail = "Is not the commander";
-        isCmdValid = false;
+        isCmdAuthorized = false;
     }
 
-    if (!isCmdValid) {
+    if (!isCmdAuthorized) {
         pCmdStatus->header.frameId = FrameId_CmdStatus;
         pCmdStatus->header.counter = pCmdMsg->counter;
         pCmdStatus->cmdStatus = CmdStatus_NotOK;
@@ -269,7 +277,7 @@ static bool cmdTlmServer_isCmdValid(commandStatusStructure_t *pCmdStatus,
         pCmdStatus->reason[LENGTH_CMD_STATUS_REASON - 1] = '\0';
     }
 
-    return isCmdValid;
+    return isCmdAuthorized;
 }
 
 // Run the server.
@@ -356,11 +364,11 @@ static void *cmdTlmServer_run(void *pData) {
                 break;
             }
 
-            // Check the command is valid or not
-            bool isCmdValid = cmdTlmServer_isCmdValid(&cmdStatus, &cmdMsg,
-                                                      pServerInfo->isCommander);
+            // Check the command is authorized or not
+            bool isCmdAuthorized = cmdTlmServer_isCmdAuthorized(
+                &cmdStatus, &cmdMsg, pServerInfo->isCommander);
 
-            if (isCmdValid) {
+            if (isCmdAuthorized) {
                 // Write command to command message buffer
                 if (circular_buf_put(pServerInfo->cmdMsgBuffer, cmdMsg)) {
                     syslog(LOG_NOTICE,
@@ -374,7 +382,7 @@ static void *cmdTlmServer_run(void *pData) {
             // Writing to a closed socket will raise SIGPIPE. Check
             // cmdTlmServer_sendLastCmdStateInMsgQueue() for the details
             // (references) that how to avoid the termination signal
-            if (!isCmdValid) {
+            if (!isCmdAuthorized) {
                 error = send(pServerInfo->socketConnect, &cmdStatus,
                              sizeof(commandStatusStructure_t), MSG_NOSIGNAL);
             } else {

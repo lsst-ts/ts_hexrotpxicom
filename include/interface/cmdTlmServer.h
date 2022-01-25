@@ -30,13 +30,15 @@ typedef struct _serverInfo {
     bool isReady;
     // Server status with the enum 'ServerStatus'
     int serverStatus;
-    // Pointer to the name of command status queue
+    // Pointer to the name of command status queue. This is required by
+    // mq_open() to identify the queue.
     char *pQueueNameCmdStatus;
     // Message queue of the command status
     mqd_t msgQueueCmdStatus;
     // Pointer to the command status used in message queue
     gpointer *pMsgCmdStatus;
-    // Pointer to the name of telemetry queue
+    // Pointer to the name of telemetry queue. This is required by mq_open()
+    // to identify the queue.
     char *pQueueNameTlm;
     // Message queue of the telemetry
     mqd_t msgQueueTlm;

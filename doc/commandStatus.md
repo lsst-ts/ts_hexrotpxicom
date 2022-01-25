@@ -23,6 +23,8 @@ This enum is defined in the `ts_rotator_controller` or `ts_hexapod_controller`.
 3. CSC issues a command when the graphical user interface (GUI) has control.
 (The GUI will not see this because the GUI takes control from CSC whenever it issues a command.)
 
+Note: The GUI can always take the control from CSC.
+
 ## Command Result
 
 The controller will report the result of command execution to the client.

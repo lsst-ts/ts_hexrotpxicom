@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <cstring>
+#include <syslog.h>
 
 #include "gtest/gtest.h"
 
@@ -15,6 +16,8 @@ struct ConfigPxiTest : testing::Test {
         testConfigFilePath =
             joinStr(getModulePath(), "/tests/testData/default.yaml");
         configPxi_setConfigFile(testConfigFilePath);
+
+        openlog("ConfigPxi", LOG_CONS, LOG_SYSLOG);
     }
 
     ~ConfigPxiTest() {
@@ -22,6 +25,8 @@ struct ConfigPxiTest : testing::Test {
         testConfigFilePath = NULL;
 
         configPxi_setConfigFile("");
+
+        closelog();
     }
 };
 

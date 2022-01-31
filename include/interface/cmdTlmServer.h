@@ -23,11 +23,20 @@ typedef struct _serverInfo {
     // Socket to connect to the TCP/IP client
     int socketConnect;
     // Thread to run the server
-    pthread_t thread;
-    // Is ready to listen to the command and write the telemetry or not.
+    pthread_t threadServer;
+    // Thread to send the telemetry and command status to the client
+    pthread_t threadTlm;
+    // Is ready to listen to the command or not.
     // This value is set to be true when the thread is ready, false when the
     // software is ready to close the server.
-    bool isReady;
+    bool isReadyServer;
+    // Is ready to write the telemetry or not.
+    // This value is set to be true when the thread is ready, false when the
+    // software is ready to close the server.
+    bool isReadyTlm;
+    // Is the close of connection detected when sending the data to the
+    // connected socket or not
+    bool isCloseConnDetected;
     // Server status with the enum 'ServerStatus'
     int serverStatus;
     // Pointer to the name of command status queue. This is required by
@@ -87,17 +96,27 @@ void cmdTlmServer_basicClose(serverInfo_t *pServerInfo);
 void cmdTlmServer_close(serverInfo_t *pServerInfo);
 
 // Send a command status to the message queue. The arguments are:
-// - server information
-// - counter value of command being acknowledged
-// - command status (enum: 'CmdStatus')
-// - estimated duration (seconds); 0 if already done
-// - reason the command failed... (put "" if nothing to report. If "reason" is
-//   longer than the buffer defined in commandStatusStructure_t, it will be
-//   truncated to fit.)
+// - pServerInfo: pointer to the server information
+// - counter: counter value of command being acknowledged
+// - cmdStatus: command status (enum: 'CmdStatus')
+// - duration: estimated duration (seconds); 0 if already done
+// - pReason: reason the command failed... (put "" if nothing to report. If
+//   "pReason" is longer than the buffer defined in commandStatusStructure_t,
+//   it will be truncated to fit.)
 // Return 0 if success, otherwise, return -1.
 int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
                                          unsigned int counter,
                                          unsigned int cmdStatus,
-                                         double duration, const char *reason);
+                                         double duration, const char *pReason);
+
+// Send a telemetry message to the message queue. The arguments are:
+// - pServerInfo: pointer to the server information
+// - pMsg: pointer to the telemetry message
+// - sizeMsg: size of the message in bytes
+// - priority: A nonnegative integer that specifies the priority of this
+//   message. See the mq_send() for the details.
+// Return 0 if success, otherwise, return -1.
+int cmdTlmServer_sendTlmToMsgQueue(serverInfo_t *pServerInfo, const char *pMsg,
+                                   size_t sizeMsg, unsigned int priority);
 
 #endif // CMDTLMSERVER_H

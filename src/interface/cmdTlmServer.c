@@ -13,6 +13,33 @@
 #include "tcpServer.h"
 #include "cmdTlmServer.h"
 
+// Exit the running thread. The arguments are:
+// - thread: running thread
+// - pIsReady: pointer to the status of thread
+// - pNameThread: pointer to the name of thread
+// - pNameServer: pointer to the name of server
+static void cmdTlmServer_exitThread(pthread_t thread, bool *pIsReady,
+                                    char *pNameThread, char *pNameServer) {
+    int error = 0;
+    if (*pIsReady) {
+        *pIsReady = false;
+        error = pthread_join(thread, NULL);
+    }
+
+    if (error != 0) {
+        syslog(LOG_ERR, "Failed the waiting of %s thread in the %s server. "
+                        "Cancelling it...",
+               pNameThread, pNameServer);
+
+        error = pthread_cancel(thread);
+    }
+
+    if (error != 0) {
+        syslog(LOG_ERR, "Failed to cancel the %s thread in the %s server.",
+               pNameThread, pNameServer);
+    }
+}
+
 void cmdTlmServer_basicClose(serverInfo_t *pServerInfo) {
     // Close the sockets
     if (pServerInfo->socketConnect != -1) {
@@ -58,16 +85,12 @@ void cmdTlmServer_basicClose(serverInfo_t *pServerInfo) {
 void cmdTlmServer_close(serverInfo_t *pServerInfo) {
     syslog(LOG_NOTICE, "Closing the %s server.", pServerInfo->pName);
 
-    int error = 0;
-    if (pServerInfo->isReady) {
-        pServerInfo->isReady = false;
-        error = pthread_join(pServerInfo->thread, NULL);
-    }
-
-    if (error != 0) {
-        syslog(LOG_ERR, "Failed the waiting of thread in the %s server.",
-               pServerInfo->pName);
-    }
+    // Notice the order here is reversed from cmdTlmServer_runInNewThread()
+    cmdTlmServer_exitThread(pServerInfo->threadTlm, &pServerInfo->isReadyTlm,
+                            "telemetry", pServerInfo->pName);
+    cmdTlmServer_exitThread(pServerInfo->threadServer,
+                            &pServerInfo->isReadyServer, "server",
+                            pServerInfo->pName);
 
     cmdTlmServer_basicClose(pServerInfo);
 }
@@ -85,7 +108,9 @@ static void cmdTlmServer_initServerInfo(serverInfo_t *pServerInfo, char *pName,
     pServerInfo->socketListen = -1;
     pServerInfo->socketConnect = -1;
 
-    pServerInfo->isReady = false;
+    pServerInfo->isReadyServer = false;
+    pServerInfo->isReadyTlm = false;
+    pServerInfo->isCloseConnDetected = false;
     pServerInfo->serverStatus = ServerStatus_Disconnected;
 
     pServerInfo->pQueueNameCmdStatus = "";
@@ -214,8 +239,39 @@ static int cmdTlmServer_sendLastCmdStateInMsgQueue(serverInfo_t *pServerInfo) {
     // https://stackoverflow.com/questions/26752649/so-nosigpipe-was-not-declared
     // https://stackoverflow.com/questions/19172804/crash-when-sending-data-without-connection-via-socket-in-linux?rq=1
     int error = 0;
-    if (bytesReceived > 0) {
+    if ((bytesReceived > 0) &&
+        (pServerInfo->serverStatus == ServerStatus_Connected)) {
         error = send(pServerInfo->socketConnect, pServerInfo->pMsgCmdStatus,
+                     bytesReceived, MSG_NOSIGNAL);
+        if (error < 0) {
+            // Return if the connection is broken
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+// Pop the oldest telemetry message from the message queue, if one is
+// available, and send it to the client, which depends on 'pServerInfo' (can be
+// CSC or GUI).
+// Return 0 if there was no message, or there was a message and it was sent
+// successfully.
+// Return -1 if there was a message and sending failed because the socket was
+// closed. The message will still be popped from the message queue.
+static int cmdTlmServer_sendLastTlmInMsgQueue(serverInfo_t *pServerInfo) {
+    int bytesReceived =
+        mq_receive(pServerInfo->msgQueueTlm, (char *)pServerInfo->pMsgTlm,
+                   pServerInfo->sizeMsgTlm, NULL);
+
+    // Send the message only when there is the available data.
+    // Writing to a closed socket will raise SIGPIPE.
+    // Check cmdTlmServer_sendLastCmdStateInMsgQueue() for the details
+    // (references).
+    int error = 0;
+    if ((bytesReceived > 0) &&
+        (pServerInfo->serverStatus == ServerStatus_Connected)) {
+        error = send(pServerInfo->socketConnect, pServerInfo->pMsgTlm,
                      bytesReceived, MSG_NOSIGNAL);
         if (error < 0) {
             // Return if the connection is broken
@@ -285,6 +341,63 @@ static bool cmdTlmServer_isCmdAuthorized(commandStatusStructure_t *pCmdStatus,
     return isCmdAuthorized;
 }
 
+// Send the telemetry and command status to the client.
+// Note: The data types of input and output are required for pthread_create().
+// The input needs to cast to the correct data type.
+static void *cmdTlmServer_sendTlmAndCmdStatus(void *pData) {
+
+    // Get the server information
+    serverInfo_t *pServerInfo = (serverInfo_t *)pData;
+
+    // Loop delay time
+    // 50 milliseconds (= 20 Hz)
+    struct timespec ts50;
+    ts50.tv_nsec = 50000000;
+    ts50.tv_sec = 0;
+
+    // Wait until begins to write the telemetry
+    while (!pServerInfo->isReadyTlm) {
+        nanosleep(&ts50, NULL);
+    }
+
+    // Write the telemetry and command status
+    syslog(LOG_NOTICE, "The telemetry thread is running in the %s server.",
+           pServerInfo->pName);
+
+    int lastServerStatus = ServerStatus_Disconnected;
+    while (pServerInfo->isReadyTlm) {
+        // Reset the record of finding the closed connection and update the last
+        // server status
+        if ((lastServerStatus == ServerStatus_Disconnected) &&
+            (pServerInfo->serverStatus == ServerStatus_Connected)) {
+            pServerInfo->isCloseConnDetected = false;
+        }
+
+        lastServerStatus = pServerInfo->serverStatus;
+
+        // Reply the last command status from commanding.c in controller code
+        int error = 0;
+        if (!pServerInfo->isCloseConnDetected && (error == 0)) {
+            error = cmdTlmServer_sendLastCmdStateInMsgQueue(pServerInfo);
+        }
+
+        // Send the telemetry if any
+        if (!pServerInfo->isCloseConnDetected && (error == 0)) {
+            error = cmdTlmServer_sendLastTlmInMsgQueue(pServerInfo);
+        }
+
+        // Report if sending failed. The server thread will notice this and
+        // change the server status to be disconnected in cmdTlmServer_run()
+        if (error == -1) {
+            pServerInfo->isCloseConnDetected = true;
+        }
+
+        nanosleep(&ts50, NULL);
+    }
+
+    return 0;
+}
+
 // Run the server.
 // Note: The data types of input and output are required for pthread_create().
 // The input needs to cast to the correct data type.
@@ -294,7 +407,7 @@ static void *cmdTlmServer_run(void *pData) {
     serverInfo_t *pServerInfo = (serverInfo_t *)pData;
 
     // Wait until begins to run the server's job
-    while (!pServerInfo->isReady) {
+    while (!pServerInfo->isReadyServer) {
         sleep(1);
     }
 
@@ -314,12 +427,7 @@ static void *cmdTlmServer_run(void *pData) {
 
     // Run the server
     int error;
-    int nbytes;
-    while (pServerInfo->isReady) {
-
-        // New command message
-        commandStreamStructure_t cmdMsg;
-        commandStatusStructure_t cmdStatus;
+    while (pServerInfo->isReadyServer) {
 
         // State machine to deal with the connection/disconnection with
         // TCP/IP client
@@ -333,6 +441,20 @@ static void *cmdTlmServer_run(void *pData) {
             if (pServerInfo->socketConnect == -1) {
                 break;
             } else {
+                // Set the socket option of TCP_NODELAY
+                int optVal = 1;
+                error = setsockopt(pServerInfo->socketConnect, IPPROTO_TCP,
+                                   TCP_NODELAY, &optVal, sizeof(optVal));
+                if (error == -1) {
+                    syslog(LOG_ERR, "Failed to set the TCP_NODELAY in "
+                                    "connected socket in the %s server",
+                           pServerInfo->pName);
+
+                    cmdTlmServer_closeConn(pServerInfo, &fds);
+                    break;
+                }
+
+                // Update the server status
                 pServerInfo->serverStatus = ServerStatus_Connected;
 
                 syslog(LOG_NOTICE,
@@ -347,17 +469,20 @@ static void *cmdTlmServer_run(void *pData) {
         // Connected with the TCP/IP client, look for commands
         case ServerStatus_Connected:
 
-            // Reply the last command status from commanding.c
-            error = cmdTlmServer_sendLastCmdStateInMsgQueue(pServerInfo);
-
-            // If sending failed, close the connection
-            if (error < 0) {
+            // Close the connection if the telemetry thread detected the
+            // connection was closed
+            if (pServerInfo->isCloseConnDetected) {
                 cmdTlmServer_closeConn(pServerInfo, &fds);
+
+                syslog(LOG_NOTICE, "The telemetry thread found the connection "
+                                   "is closed in the %s server.",
+                       pServerInfo->pName);
                 break;
             }
 
             // Check the new command
-            nbytes = cmdTlmServer_recv(&cmdMsg, &fds, pServerInfo->timeout);
+            commandStreamStructure_t cmdMsg;
+            int nbytes = cmdTlmServer_recv(&cmdMsg, &fds, pServerInfo->timeout);
 
             // Ignore the timeout or error
             if (nbytes < 0) {
@@ -370,6 +495,7 @@ static void *cmdTlmServer_run(void *pData) {
                 break;
             }
 
+            commandStatusStructure_t cmdStatus;
             bool isCmdAuthorized = cmdTlmServer_isCmdAuthorized(
                 &cmdStatus, &cmdMsg, pServerInfo->isCommander);
             if (isCmdAuthorized) {
@@ -381,21 +507,18 @@ static void *cmdTlmServer_run(void *pData) {
                 }
             }
 
-            // Send the NotOK message to client if needed
-
-            // Writing to a closed socket will raise SIGPIPE. Check
-            // cmdTlmServer_sendLastCmdStateInMsgQueue() for the details
-            // (references) that how to avoid the termination signal
+            // Send the NotOK message to client by the message queue if needed
             if (!isCmdAuthorized) {
-                error = send(pServerInfo->socketConnect, &cmdStatus,
-                             sizeof(commandStatusStructure_t), MSG_NOSIGNAL);
+                error =
+                    mq_send(pServerInfo->msgQueueCmdStatus, (char *)&cmdStatus,
+                            sizeof(commandStatusStructure_t), 0);
             } else {
                 error = 0;
             }
 
-            // We were connected but the connection has been broken
             if (error < 0) {
-                cmdTlmServer_closeConn(pServerInfo, &fds);
+                syslog(LOG_ERR, "Fail to send the command status: %s",
+                       strerror(errno));
                 break;
             }
 
@@ -416,26 +539,43 @@ static void *cmdTlmServer_run(void *pData) {
 }
 
 int cmdTlmServer_runInNewThread(serverInfo_t *pServerInfo) {
-    int error = pthread_create(&pServerInfo->thread, NULL, cmdTlmServer_run,
-                               (void *)pServerInfo);
+    // Run the server thread
+    int error = pthread_create(&pServerInfo->threadServer, NULL,
+                               cmdTlmServer_run, (void *)pServerInfo);
     struct sched_param param;
     if (error != 0) {
-        syslog(LOG_ERR, "Failed to create the thread in %s server.",
+        syslog(LOG_ERR, "Failed to create the server thread in %s server.",
                pServerInfo->pName);
         return -1;
     } else {
         // Set priority of this thread
         param.sched_priority = sched_get_priority_max(SCHED_OTHER);
-        if ((error = pthread_setschedparam(pServerInfo->thread, SCHED_OTHER,
-                                           &param)) != 0) {
-            syslog(LOG_ERR, "Can't initiaze the thread priority in %s server.",
+        if ((error = pthread_setschedparam(pServerInfo->threadServer,
+                                           SCHED_OTHER, &param)) != 0) {
+            syslog(LOG_ERR,
+                   "Can't initialize the server thread priority in %s server.",
                    pServerInfo->pName);
 
-            pthread_exit(&pServerInfo->thread);
+            pthread_cancel(pServerInfo->threadServer);
             return -1;
         }
-        pServerInfo->isReady = true;
     }
+
+    // Run the telemetry thread
+    error =
+        pthread_create(&pServerInfo->threadTlm, NULL,
+                       cmdTlmServer_sendTlmAndCmdStatus, (void *)pServerInfo);
+    if (error != 0) {
+        syslog(LOG_ERR, "Failed to create the telemetry thread in %s server.",
+               pServerInfo->pName);
+
+        pthread_cancel(pServerInfo->threadServer);
+        return -1;
+    }
+
+    // Ready to run the server
+    pServerInfo->isReadyServer = true;
+    pServerInfo->isReadyTlm = true;
 
     return 0;
 }
@@ -476,7 +616,7 @@ int cmdTlmServer_init(serverInfo_t *pServerInfo, char *pName, int timeout,
 int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
                                          unsigned int counter,
                                          unsigned int cmdStatus,
-                                         double duration, const char *reason) {
+                                         double duration, const char *pReason) {
 
     // Fill the command status
     commandStatusStructure_t cmdStatusSend;
@@ -485,7 +625,7 @@ int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
     cmdStatusSend.cmdStatus = cmdStatus;
     cmdStatusSend.duration = duration;
 
-    strncpy(&cmdStatusSend.reason[0], reason, LENGTH_CMD_STATUS_REASON);
+    strncpy(&cmdStatusSend.reason[0], pReason, LENGTH_CMD_STATUS_REASON);
     cmdStatusSend.reason[LENGTH_CMD_STATUS_REASON - 1] = '\0';
 
     // Send the message
@@ -493,6 +633,16 @@ int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
                         sizeof(commandStatusStructure_t), 0);
     if (error < 0) {
         syslog(LOG_ERR, "Fail to send the command status: %s", strerror(errno));
+    }
+
+    return error;
+}
+
+int cmdTlmServer_sendTlmToMsgQueue(serverInfo_t *pServerInfo, const char *pMsg,
+                                   size_t sizeMsg) {
+    int error = mq_send(pServerInfo->msgQueueTlm, pMsg, sizeMsg, 0);
+    if (error < 0) {
+        syslog(LOG_ERR, "Fail to send the telemetry: %s", strerror(errno));
     }
 
     return error;

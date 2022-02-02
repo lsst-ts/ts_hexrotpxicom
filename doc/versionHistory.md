@@ -1,5 +1,9 @@
 # Version History
 
+0.1.2
+
+- Support the telemetry in `cmdTlmServer.c`.
+
 0.1.1
 
 - Replace the `printf()` with `syslog()` in `tcpServer.c`, `circular_buffer.c`, and `configPxi.c`.

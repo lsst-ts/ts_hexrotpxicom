@@ -18,6 +18,23 @@ typedef struct _serverData {
     struct sockaddr_in serverAddr;
 } serverData_t;
 
+// Data structure of the test telemetry, which has a bigger size.
+// This is to simulate the telemetry message in the controller code, which is
+// bigger than the config message.
+typedef struct __attribute__((__packed__)) _telemetryTestBigStructure {
+    headerStructure_t header;
+    double dataA;
+    double dataB;
+} telemetryTestBigStructure_t;
+
+// Data structure of the test telemetry, which has a smaller size.
+// This is to simulate the config message in the controller code, which is
+// smaller than the telemetry message.
+typedef struct __attribute__((__packed__)) _telemetryTestSmallStructure {
+    headerStructure_t header;
+    short int data;
+} telemetryTestSmallStructure_t;
+
 // Start a command client and write commands.
 static void *startClient(void *pServerData) {
     // Remap the input data
@@ -33,7 +50,7 @@ static void *startClient(void *pServerData) {
         exit(1);
     }
 
-    sleep(1);
+    sleep(3);
     EXPECT_EQ(ServerStatus_Connected, pServerInfo->serverStatus);
 
     // Test the NotOK messages
@@ -74,6 +91,26 @@ static void *startClient(void *pServerData) {
     cmdMsg.commander = Commander_GUI;
     send(socketDesc, &cmdMsg, sizeof(cmdMsg), 0);
 
+    // Send a telemetry message
+    telemetryTestBigStructure_t tlmSendBig;
+    tlmSendBig.header.frameId = FrameId_Tlm;
+    tlmSendBig.header.counter = 1;
+    tlmSendBig.dataA = 1.2;
+    tlmSendBig.dataB = 1.3;
+    cmdTlmServer_sendTlmToMsgQueue(pServerInfo, (char *)&tlmSendBig,
+                                   sizeof(telemetryTestBigStructure_t));
+
+    // Check to get the telemetry message from socket
+    telemetryTestBigStructure_t tlmRecvBig;
+    msgSize =
+        recv(socketDesc, &tlmRecvBig, sizeof(telemetryTestBigStructure_t), 0);
+
+    EXPECT_EQ(sizeof(telemetryTestBigStructure_t), msgSize);
+    EXPECT_EQ(FrameId_Tlm, tlmRecvBig.header.frameId);
+    EXPECT_EQ(tlmSendBig.header.counter, tlmRecvBig.header.counter);
+    EXPECT_DOUBLE_EQ(tlmSendBig.dataA, tlmRecvBig.dataA);
+    EXPECT_DOUBLE_EQ(tlmSendBig.dataB, tlmRecvBig.dataB);
+
     // Close the socket
     tcpServer_close(socketDesc);
     sleep(1);
@@ -88,7 +125,7 @@ static void *startClient(void *pServerData) {
         exit(1);
     }
 
-    sleep(1);
+    sleep(3);
     EXPECT_EQ(ServerStatus_Connected, pServerInfo->serverStatus);
 
     // Put the server into the commander and write a command
@@ -113,12 +150,33 @@ static void *startClient(void *pServerData) {
     EXPECT_DOUBLE_EQ(duration, cmdStatus.duration);
     EXPECT_STREQ(reason, cmdStatus.reason);
 
+    // Send the telemetry message again with a smaller size
+    telemetryTestSmallStructure_t tlmSendSmall;
+    tlmSendSmall.header.frameId = FrameId_Tlm;
+    tlmSendSmall.header.counter = 3;
+    tlmSendSmall.data = 4;
+    cmdTlmServer_sendTlmToMsgQueue(pServerInfo, (char *)&tlmSendSmall,
+                                   sizeof(telemetryTestSmallStructure_t));
+
+    // Check to get the telemetry message from socket
+    telemetryTestSmallStructure_t tlmRecvSmall;
+    msgSize = recv(socketDesc, &tlmRecvSmall,
+                   sizeof(telemetryTestSmallStructure_t), 0);
+
+    EXPECT_EQ(sizeof(telemetryTestSmallStructure_t), msgSize);
+    EXPECT_EQ(FrameId_Tlm, tlmSendSmall.header.frameId);
+    EXPECT_EQ(tlmSendSmall.header.counter, tlmRecvSmall.header.counter);
+    EXPECT_EQ(tlmSendSmall.data, tlmRecvSmall.data);
+
     // Close the server to release the resource
     // Note that we do not want to close the 'socketDesc' first to simulate the
     // real condition that the sever should be able to close the connection by
     // itself.
     cmdTlmServer_close(pServerInfo);
     EXPECT_EQ(ServerStatus_Exit, pServerInfo->serverStatus);
+
+    EXPECT_FALSE(pServerInfo->isReadyTlm);
+    EXPECT_FALSE(pServerInfo->isReadyServer);
 
     // Close the connection in client to release the resource
     tcpServer_close(socketDesc);
@@ -131,7 +189,7 @@ struct CmdTlmServerTest : testing::Test {
 
     char *name = "cmdTlm";
     int timeout = 100;
-    unsigned int sizeMsgTlm = 10;
+    unsigned int sizeMsgTlm = sizeof(telemetryTestBigStructure_t);
     int port = 8888;
     long maxNumQueueTlm = 10;
 
@@ -164,7 +222,9 @@ TEST_F(CmdTlmServerTest, init) {
     EXPECT_NE(-1, serverInfo.socketListen);
     EXPECT_EQ(-1, serverInfo.socketConnect);
 
-    EXPECT_FALSE(serverInfo.isReady);
+    EXPECT_FALSE(serverInfo.isReadyServer);
+    EXPECT_FALSE(serverInfo.isReadyTlm);
+    EXPECT_FALSE(serverInfo.isCloseConnDetected);
     EXPECT_EQ(ServerStatus_Disconnected, serverInfo.serverStatus);
 
     EXPECT_STREQ("/queueCmdStatus8888", serverInfo.pQueueNameCmdStatus);
@@ -213,6 +273,34 @@ TEST_F(CmdTlmServerTest, sendCmdStatusToMsgQueue) {
     EXPECT_EQ(cmdStatus, cmdStatusRecv.cmdStatus);
     EXPECT_DOUBLE_EQ(duration, cmdStatusRecv.duration);
     EXPECT_STREQ(reason, cmdStatusRecv.reason);
+}
+
+TEST_F(CmdTlmServerTest, sendTlmToMsgQueue) {
+    cmdTlmServer_init(&serverInfo, name, timeout, sizeMsgTlm, port,
+                      maxNumQueueTlm, cmdMsgBuffer);
+
+    // Write a message of telemetry
+    telemetryTestSmallStructure_t tlmSend;
+    tlmSend.header.frameId = FrameId_Tlm;
+    tlmSend.header.counter = 4;
+    tlmSend.data = 5;
+
+    size_t sizeTlmSmall = sizeof(telemetryTestSmallStructure_t);
+    int status = cmdTlmServer_sendTlmToMsgQueue(&serverInfo, (char *)&tlmSend,
+                                                sizeTlmSmall);
+
+    EXPECT_EQ(0, status);
+
+    // Receive the message of telemetry
+    telemetryTestSmallStructure_t tlmSendRecv;
+    int bytesReceived = mq_receive(serverInfo.msgQueueTlm, (char *)&tlmSendRecv,
+                                   serverInfo.sizeMsgTlm, NULL);
+
+    EXPECT_EQ(sizeTlmSmall, bytesReceived);
+
+    EXPECT_EQ(tlmSend.header.frameId, tlmSendRecv.header.frameId);
+    EXPECT_EQ(tlmSend.header.counter, tlmSendRecv.header.counter);
+    EXPECT_EQ(tlmSend.data, tlmSendRecv.data);
 }
 
 TEST_F(CmdTlmServerTest, runInNewThread) {

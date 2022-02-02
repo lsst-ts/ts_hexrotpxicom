@@ -113,10 +113,8 @@ int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
 // - pServerInfo: pointer to the server information
 // - pMsg: pointer to the telemetry message
 // - sizeMsg: size of the message in bytes
-// - priority: A nonnegative integer that specifies the priority of this
-//   message. See the mq_send() for the details.
 // Return 0 if success, otherwise, return -1.
 int cmdTlmServer_sendTlmToMsgQueue(serverInfo_t *pServerInfo, const char *pMsg,
-                                   size_t sizeMsg, unsigned int priority);
+                                   size_t sizeMsg);
 
 #endif // CMDTLMSERVER_H

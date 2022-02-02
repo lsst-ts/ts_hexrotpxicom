@@ -349,16 +349,16 @@ static void *cmdTlmServer_sendTlmAndCmdStatus(void *pData) {
     // Get the server information
     serverInfo_t *pServerInfo = (serverInfo_t *)pData;
 
-    // Wait until begins to write the telemetry
-    while (!pServerInfo->isReadyTlm) {
-        sleep(1);
-    }
-
     // Loop delay time
     // 50 milliseconds (= 20 Hz)
     struct timespec ts50;
     ts50.tv_nsec = 50000000;
     ts50.tv_sec = 0;
+
+    // Wait until begins to write the telemetry
+    while (!pServerInfo->isReadyTlm) {
+        nanosleep(&ts50, NULL);
+    }
 
     // Write the telemetry and command status
     syslog(LOG_NOTICE, "The telemetry thread is running in the %s server.",
@@ -639,8 +639,8 @@ int cmdTlmServer_sendCmdStatusToMsgQueue(serverInfo_t *pServerInfo,
 }
 
 int cmdTlmServer_sendTlmToMsgQueue(serverInfo_t *pServerInfo, const char *pMsg,
-                                   size_t sizeMsg, unsigned int priority) {
-    int error = mq_send(pServerInfo->msgQueueTlm, pMsg, sizeMsg, priority);
+                                   size_t sizeMsg) {
+    int error = mq_send(pServerInfo->msgQueueTlm, pMsg, sizeMsg, 0);
     if (error < 0) {
         syslog(LOG_ERR, "Fail to send the telemetry: %s", strerror(errno));
     }

@@ -1,5 +1,9 @@
 # Version History
 
+0.1.3
+
+- Copy the `testCircularBufferThread.cpp` from `ts_rotator_controller`.
+
 0.1.2
 
 - Support the telemetry in `cmdTlmServer.c`.

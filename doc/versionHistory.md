@@ -1,5 +1,10 @@
 # Version History
 
+0.1.4
+
+- Change the telemetry loop to be 50 Hz instead of 20 Hz.
+This is to deal with the observed time delay on summit.
+
 0.1.3
 
 - Copy the `testCircularBufferThread.cpp` from `ts_rotator_controller`.

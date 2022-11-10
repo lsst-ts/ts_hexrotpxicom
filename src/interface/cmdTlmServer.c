@@ -350,14 +350,14 @@ static void *cmdTlmServer_sendTlmAndCmdStatus(void *pData) {
     serverInfo_t *pServerInfo = (serverInfo_t *)pData;
 
     // Loop delay time
-    // 50 milliseconds (= 20 Hz)
-    struct timespec ts50;
-    ts50.tv_nsec = 50000000;
-    ts50.tv_sec = 0;
+    // 20 milliseconds (= 50 Hz)
+    struct timespec ts20;
+    ts20.tv_nsec = 20000000;
+    ts20.tv_sec = 0;
 
     // Wait until begins to write the telemetry
     while (!pServerInfo->isReadyTlm) {
-        nanosleep(&ts50, NULL);
+        nanosleep(&ts20, NULL);
     }
 
     // Write the telemetry and command status
@@ -392,7 +392,7 @@ static void *cmdTlmServer_sendTlmAndCmdStatus(void *pData) {
             pServerInfo->isCloseConnDetected = true;
         }
 
-        nanosleep(&ts50, NULL);
+        nanosleep(&ts20, NULL);
     }
 
     return 0;

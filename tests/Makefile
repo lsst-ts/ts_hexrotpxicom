@@ -109,6 +109,8 @@ clean:
 	-$(RM) $(BUILDDIRTEST)/*.$(OBJEXT)
 	-$(RM) $(BUILDDIRTEST)/*.gcda
 	-$(RM) $(BUILDDIRTEST)/*.gcno
+	-$(RM) $(PXI_CNTLR_HOME)/tlm_*.log*
 	-$(RM) $(BUILDDIRTEST)/*/*.$(OBJEXT)
 	-$(RM) $(BUILDDIRTEST)/*/*.gcda
 	-$(RM) $(BUILDDIRTEST)/*/*.gcno
+	-$(RM) $(PXI_CNTLR_HOME)/*/tlm_*.log*

@@ -14,37 +14,16 @@ static char *filename = "";
 // Pointer of the file
 static FILE *pFile = NULL;
 
-// Pointer of the buffer
-static void *pBuffer = NULL;
-
-// Size of each element in buffer
-static size_t sizeElementInBuffer = 0;
-
 // Counter of the rotating file.
-static uint countRotatingFile = 0;
+static int countRotatingFile = 0;
 
 // Maximum count per file.
-static uint countFileMax = 0;
+static int countFileMax = 0;
 
 // Current count of file
-static uint countFile = 0;
-
-// Maximum count of the buffer
-static uint countBufferMax = 0;
-
-// Current count in the buffer
-static uint countBufferCurrent = 0;
+static int countFile = 0;
 
 char *logTlm_getFilename(void) { return filename; }
-
-void *logTlm_getBuffer(void) { return pBuffer; }
-
-void logTlm_freeBuffer(void) {
-    if (pBuffer != NULL) {
-        free(pBuffer);
-        pBuffer = NULL;
-    }
-}
 
 int logTlm_close(void) {
     int status = 0;
@@ -81,45 +60,27 @@ static void logTlm_setFilename(char *pathDir, char *formatFileName) {
     filename = joinStr(pathDir, timeFormatted);
 }
 
-int logTlm_open(char *pathDir, char *formatFilename, int sizeBuffer,
-                size_t sizeElement, int recordPerFile) {
+int logTlm_open(char *pathDir, char *formatFilename, int recordPerFile) {
 
-    if ((sizeBuffer <= 0) || (sizeElement <= 0) || (recordPerFile <= 0)) {
-        syslog(LOG_ERR, "When opening the telemetry file, the buffer/element "
-                        "size or file record should be > 0.");
+    if (recordPerFile <= 0) {
+        syslog(LOG_ERR, "When opening the telemetry file, the record of file "
+                        "should be > 0.");
         return -1;
     }
 
     // Always close the file first if there is any
     logTlm_close();
 
-    // Free the buffer first before the allocation
-    logTlm_freeBuffer();
-
-    // Allocate the memory
-    pBuffer = calloc(sizeBuffer, sizeElement);
-    if (pBuffer == NULL) {
-        syslog(LOG_ERR, "Failed to allocate the memory of buffer.");
-        return -1;
-    }
-
     // Open a new file
     logTlm_setFilename(pathDir, formatFilename);
     pFile = fopen(filename, "w");
     if (pFile == NULL) {
-        logTlm_freeBuffer();
-
         syslog(LOG_ERR, "Failed to open the telemetry file.");
         return -1;
     }
 
     // Update the internal data
-    sizeElementInBuffer = sizeElement;
-
     countRotatingFile = 0;
-
-    countBufferMax = sizeBuffer;
-    countBufferCurrent = 0;
 
     countFileMax = recordPerFile;
     countFile = 0;
@@ -169,30 +130,16 @@ static int logTlm_rotateFile(void) {
     return 0;
 }
 
-void logTlm_write(void *pData) {
+void logTlm_write(void *pData, size_t sizeData) {
 
-    // Check there is the file/buffer available to write or not
-    if ((pFile == NULL) || (pBuffer == NULL)) {
-        return;
-    }
-
-    // Copy the data to memory and update the counter
-    if (countBufferCurrent < countBufferMax) {
-        memcpy(pBuffer + countBufferCurrent * sizeElementInBuffer, pData,
-               sizeElementInBuffer);
-
-        countBufferCurrent += 1;
-    }
-
-    // If the buffer is not full yet, return immediately.
-    if (countBufferCurrent < countBufferMax) {
+    // Check there is the file available to write or not
+    if (pFile == NULL) {
         return;
     }
 
     // The buffer is full. Write to the file and update the counters
-    if (fwrite(pBuffer, countBufferMax * sizeElementInBuffer, 1, pFile) > 0) {
+    if (fwrite(pData, sizeData, 1, pFile) > 0) {
         countFile += 1;
-        countBufferCurrent = 0;
     } else {
         logTlm_close();
 

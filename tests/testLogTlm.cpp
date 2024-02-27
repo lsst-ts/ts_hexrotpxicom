@@ -8,8 +8,8 @@ extern "C" {
 }
 
 struct Data {
-    uint idx;
-    uint value;
+    int idx;
+    int value;
 };
 
 struct LogTlmTest : testing::Test {
@@ -17,19 +17,16 @@ struct LogTlmTest : testing::Test {
     char *pathDir = "./";
     char *formatFilename = "tlm_%m_%d_%Y_%H_%M_%S.log";
 
-    uint sizeBuffer = 2;
-    uint recordPerFile = 2;
+    int recordPerFile = 2;
 
     struct Data data;
 
     LogTlmTest() {
-        logTlm_open(pathDir, formatFilename, sizeBuffer, sizeof(Data),
-                    recordPerFile);
+        logTlm_open(pathDir, formatFilename, recordPerFile);
     }
 
     ~LogTlmTest() {
         logTlm_close();
-        logTlm_freeBuffer();
     }
 };
 
@@ -38,9 +35,8 @@ TEST(LogTlm, logTlmOpen) {
     char *pathDir = "./";
     char *formatFilename = "tlm_%m_%d_%Y_%H_%M_%S.log";
 
-    EXPECT_EQ(-1, logTlm_open(pathDir, formatFilename, 0, 1, 1));
-    EXPECT_EQ(-1, logTlm_open(pathDir, formatFilename, 1, 0, 1));
-    EXPECT_EQ(-1, logTlm_open(pathDir, formatFilename, 1, 1, 0));
+    EXPECT_EQ(-1, logTlm_open(pathDir, formatFilename, 0));
+    EXPECT_EQ(-1, logTlm_open(pathDir, formatFilename, -1));
 }
 
 TEST_F(LogTlmTest, logTlmGetFilename) {
@@ -49,38 +45,30 @@ TEST_F(LogTlmTest, logTlmGetFilename) {
     EXPECT_TRUE(file.good());
 }
 
-TEST_F(LogTlmTest, logTlmFreeBuffer) {
-
-    EXPECT_NE(nullptr, logTlm_getBuffer());
-
-    logTlm_freeBuffer();
-    EXPECT_EQ(nullptr, logTlm_getBuffer());
-}
-
 TEST_F(LogTlmTest, logTlmClose) { EXPECT_EQ(0, logTlm_close()); }
 
 TEST_F(LogTlmTest, logTlmWrite) {
 
     // Assume we are opening a new telemetry file
     sleep(2);
-    logTlm_open(pathDir, formatFilename, sizeBuffer, sizeof(Data),
-                recordPerFile);
+    logTlm_open(pathDir, formatFilename, recordPerFile);
 
     // Write the data
-    uint idx = 0;
+    int numData = 2;
+    struct Data datas[numData];
+
+    int idxInData;
+    int idx;
     for (idx = 0; idx < 10; idx++) {
-        data.idx = idx;
-        data.value = 10 * idx;
-        logTlm_write(&data);
+
+        idxInData = idx % numData;
+        datas[idxInData].idx = idx;
+        datas[idxInData].value = 10 * idx;
+
+        if (idxInData == (numData - 1)) {
+            logTlm_write(datas, sizeof(datas));
+        }
     }
-
-    // Check the current data in buffer
-    struct Data *datas = (struct Data *)logTlm_getBuffer();
-
-    EXPECT_EQ(8, datas[0].idx);
-    EXPECT_EQ(80, datas[0].value);
-    EXPECT_EQ(9, datas[1].idx);
-    EXPECT_EQ(90, datas[1].value);
 
     // Check the file is rotated or not
     std::string fileCurrent = logTlm_getFilename();
@@ -90,15 +78,15 @@ TEST_F(LogTlmTest, logTlmWrite) {
     EXPECT_TRUE(fileOld1.good());
 
     // Check the data in file
-    uint numRecordPerFile = sizeBuffer * recordPerFile;
-    uint sizeFile = numRecordPerFile * sizeof(Data);
+    int numDataPerFile = numData * recordPerFile;
+    int sizeFile = numDataPerFile * sizeof(Data);
     char dataBinary[sizeFile];
 
     // log.0
     fileOld0.read(dataBinary, sizeFile);
     struct Data *dataDecode = (struct Data *)dataBinary;
 
-    for (idx = 0; idx < numRecordPerFile; idx++) {
+    for (idx = 0; idx < numDataPerFile; idx++) {
         EXPECT_EQ(idx, dataDecode[idx].idx);
         EXPECT_EQ(10 * idx, dataDecode[idx].value);
     }
@@ -107,8 +95,8 @@ TEST_F(LogTlmTest, logTlmWrite) {
     fileOld1.read(dataBinary, sizeFile);
 
     int idxExpect = 0;
-    for (idx = 0; idx < numRecordPerFile; idx++) {
-        idxExpect = idx + numRecordPerFile;
+    for (idx = 0; idx < numDataPerFile; idx++) {
+        idxExpect = idx + numDataPerFile;
         EXPECT_EQ(idxExpect, dataDecode[idx].idx);
         EXPECT_EQ(10 * idxExpect, dataDecode[idx].value);
     }

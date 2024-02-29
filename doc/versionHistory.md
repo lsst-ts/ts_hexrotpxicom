@@ -1,5 +1,9 @@
 # Version History
 
+0.1.5
+
+- Add the `logTlm.c`.
+
 0.1.4
 
 - Change the telemetry loop to be 50 Hz instead of 20 Hz.

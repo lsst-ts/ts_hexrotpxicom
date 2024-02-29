@@ -30,7 +30,7 @@
 *.app
 
 # Log file
-*.log
+*.log*
 
 # Targets directory
 bin/

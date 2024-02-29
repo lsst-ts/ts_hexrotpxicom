@@ -24,7 +24,9 @@ struct CircularBufferTest : testing::Test {
     }
 };
 
-TEST(CircularBuffer, circularBufInit) { EXPECT_EQ(NULL, circular_buf_init(0)); }
+TEST(CircularBuffer, circularBufInit) {
+    EXPECT_EQ(nullptr, circular_buf_init(0));
+}
 
 TEST(CircularBuffer, circularBufInitSingleSlot) {
 

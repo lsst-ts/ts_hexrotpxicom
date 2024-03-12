@@ -55,10 +55,13 @@ TEST_F(LogTlmTest, logTlmGetFilename) {
 
 TEST_F(LogTlmTest, logTlmFreeBuffer) {
 
-    EXPECT_NE(nullptr, logTlm_getBuffer());
+    EXPECT_NE(nullptr, logTlm_getBuffer(1));
+    EXPECT_NE(nullptr, logTlm_getBuffer(2));
 
     logTlm_freeBuffer();
-    EXPECT_EQ(nullptr, logTlm_getBuffer());
+    EXPECT_EQ(nullptr, logTlm_getBuffer(0));
+    EXPECT_EQ(nullptr, logTlm_getBuffer(1));
+    EXPECT_EQ(nullptr, logTlm_getBuffer(2));
 }
 
 TEST_F(LogTlmTest, logTlmClose) { EXPECT_EQ(0, logTlm_close()); }
@@ -74,18 +77,15 @@ TEST_F(LogTlmTest, logTlmWrite) {
     for (idx = 0; idx < 10; idx++) {
         data.idx = idx;
         data.value = 10 * idx;
-        if (logTlm_write(&data) == -1) {
-            logTlm_flush(true);
-            EXPECT_FALSE(logTlm_isFlushing());
-        };
+        EXPECT_EQ(0, logTlm_write(&data));
     }
 
     // Flush the data to file in the final
-    logTlm_flush(true);
+    logTlm_flush();
     EXPECT_FALSE(logTlm_isFlushing());
 
     // Check the current data in buffer
-    struct Data *datas = (struct Data *)logTlm_getBuffer();
+    struct Data *datas = (struct Data *)logTlm_getBuffer(0);
 
     EXPECT_EQ(9, datas[0].idx);
     EXPECT_EQ(90, datas[0].value);

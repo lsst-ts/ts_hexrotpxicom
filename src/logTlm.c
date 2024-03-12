@@ -15,8 +15,14 @@ static char *filename = "";
 // Pointer of the file
 static FILE *pFile = NULL;
 
-// Pointer of the buffer
-static void *pBuffer = NULL;
+// Pointers of the buffers
+
+// Current buffer in use, which is pBuffer1, pBuffer1, or NULL.
+static void *pBufferCurrent = NULL;
+
+// Buffers that store the data
+static void *pBuffer1 = NULL;
+static void *pBuffer2 = NULL;
 
 // Size of each element in buffer
 static size_t sizeElementInBuffer = 0;
@@ -39,8 +45,9 @@ static int countBufferCurrent = 0;
 // Mutex lock
 static pthread_mutex_t lock;
 
-// Data in buffer is flushing to the file or not
-static bool isFlushing = false;
+// Buffers are full or not (critical section)
+static bool isFullBuffer1 = false;
+static bool isFullBuffer2 = false;
 
 // Thread to flush the data to file
 static pthread_t thread;
@@ -50,18 +57,55 @@ static bool isThreadReady = false;
 
 char *logTlm_getFilename(void) { return filename; }
 
-void *logTlm_getBuffer(void) { return pBuffer; }
+void *logTlm_getBuffer(int id) {
+    if (id == 0) {
+        return pBufferCurrent;
+    } else if (id == 1) {
+        return pBuffer1;
+    } else if (id == 2) {
+        return pBuffer2;
+    } else {
+        return NULL;
+    }
+}
+
+// Free the single buffer and set to NULL.
+static void logTlm_freeBufferSingle(void **ppBuffer) {
+
+    if (*ppBuffer != NULL) {
+        free(*ppBuffer);
+        *ppBuffer = NULL;
+    }
+}
 
 void logTlm_freeBuffer(void) {
-    if (pBuffer != NULL) {
-        free(pBuffer);
-        pBuffer = NULL;
-    }
 
+    // Free the buffer
+    logTlm_freeBufferSingle(&pBuffer1);
+    logTlm_freeBufferSingle(&pBuffer2);
+
+    pBufferCurrent = NULL;
+
+    // Destroy the mutex lock
     if (pthread_mutex_destroy(&lock) != 0) {
         syslog(LOG_ERR, "Mutex destroy has failed in the telemetry file.");
         exit(1);
     }
+}
+
+// Create the single buffer.
+// Return 0 if success. Otherwise, -1.
+static int logTlm_createBufferSingle(void **ppBuffer, int sizeBuffer,
+                                     size_t sizeElement, int id) {
+    *ppBuffer = calloc(sizeBuffer, sizeElement);
+    if (*ppBuffer == NULL) {
+        syslog(LOG_ERR,
+               "Failed to allocate the memory of buffer %d of telemetry file.",
+               id);
+        return -1;
+    }
+
+    return 0;
 }
 
 int logTlm_createBuffer(int sizeBuffer, size_t sizeElement) {
@@ -71,10 +115,16 @@ int logTlm_createBuffer(int sizeBuffer, size_t sizeElement) {
     }
 
     // Allocate the memory
-    pBuffer = calloc(sizeBuffer, sizeElement);
-    if (pBuffer == NULL) {
-        syslog(LOG_ERR,
-               "Failed to allocate the memory of buffer of telemetry file.");
+    int status =
+        logTlm_createBufferSingle(&pBuffer1, sizeBuffer, sizeElement, 1);
+    if (status == 0) {
+        status =
+            logTlm_createBufferSingle(&pBuffer2, sizeBuffer, sizeElement, 2);
+    }
+
+    // Free the buffer 1 if failed to allocate the memory for buffer 2
+    if ((status == -1) && (pBuffer1 != NULL)) {
+        logTlm_freeBufferSingle(&pBuffer1);
         return -1;
     }
 
@@ -151,13 +201,7 @@ int logTlm_open(char *pathDir, char *formatFilename, int recordPerFile) {
     }
 
     // Check there is still the flushing or not
-    bool isFlushingOnGoing = true;
-    if (pthread_mutex_trylock(&lock) == 0) {
-        isFlushingOnGoing = isFlushing;
-        logTlm_unlock();
-    }
-
-    if (isFlushingOnGoing) {
+    if (logTlm_isFlushing()) {
         syslog(LOG_ERR, "Can not open a new telemetry file because the "
                         "flushing is still ongoing.");
         return -1;
@@ -182,6 +226,13 @@ int logTlm_open(char *pathDir, char *formatFilename, int recordPerFile) {
 
     countRotatingFile = 0;
     countBufferCurrent = 0;
+
+    pBufferCurrent = pBuffer1;
+
+    logTlm_lock();
+    isFullBuffer1 = false;
+    isFullBuffer2 = false;
+    logTlm_unlock();
 
     return 0;
 }
@@ -233,13 +284,13 @@ static int logTlm_rotateFile(void) {
 int logTlm_write(void *pData) {
 
     // Check there is the buffer or file available or not
-    if ((pBuffer == NULL) || (pFile == NULL)) {
+    if ((pBufferCurrent == NULL) || (pFile == NULL)) {
         return -2;
     }
 
     // Copy the data to memory and update the counter
     if (countBufferCurrent < countBufferMax) {
-        memcpy(pBuffer + countBufferCurrent * sizeElementInBuffer, pData,
+        memcpy(pBufferCurrent + countBufferCurrent * sizeElementInBuffer, pData,
                sizeElementInBuffer);
 
         countBufferCurrent += 1;
@@ -248,9 +299,50 @@ int logTlm_write(void *pData) {
     // Check the buffer is full or not
     if (countBufferCurrent < countBufferMax) {
         return 0;
-    } else {
-        return -1;
     }
+
+    // Check there is the telemetry thread or not. If not, flush the data to
+    // file.
+    if (!isThreadReady) {
+        logTlm_flush();
+        return 0;
+    }
+
+    // There is the telemetry thread and the current buffer is full. Use
+    // another buffer if possible.
+    bool isAnotherBufferFull = true;
+    if (pBufferCurrent == pBuffer1) {
+
+        logTlm_lock();
+        isFullBuffer1 = true;
+        isAnotherBufferFull = isFullBuffer2;
+        logTlm_unlock();
+
+        if (!isAnotherBufferFull) {
+            pBufferCurrent = pBuffer2;
+            countBufferCurrent = 0;
+            return 0;
+        }
+    } else {
+
+        logTlm_lock();
+        isAnotherBufferFull = isFullBuffer1;
+        isFullBuffer2 = true;
+        logTlm_unlock();
+
+        if (!isAnotherBufferFull) {
+            pBufferCurrent = pBuffer1;
+            countBufferCurrent = 0;
+            return 0;
+        }
+    }
+
+    // Set the current buffer pointer to be NULL if both of buffers are full
+    if (isAnotherBufferFull) {
+        pBufferCurrent = NULL;
+    }
+
+    return -1;
 }
 
 // Write to the file.
@@ -267,7 +359,7 @@ static int logTlm_writeToFile(void *pBuffer, size_t size) {
 }
 
 // Flush the buffer data to file.
-static void logTlm_flushToFile(void) {
+static void logTlm_flushToFile(void *pBuffer, int countBuffer) {
 
     // Return immediately if no file
     if (pFile == NULL) {
@@ -277,9 +369,9 @@ static void logTlm_flushToFile(void) {
 
     // Check the current space
     int spaceAvailable = countFileMax - countFile;
-    bool isSpaceEnough = (countBufferCurrent <= spaceAvailable);
+    bool isSpaceEnough = (countBuffer <= spaceAvailable);
 
-    int numToFile = isSpaceEnough ? countBufferCurrent : spaceAvailable;
+    int numToFile = isSpaceEnough ? countBuffer : spaceAvailable;
     int status = logTlm_writeToFile(pBuffer, numToFile * sizeElementInBuffer);
 
     // Rotate to a new file
@@ -291,9 +383,9 @@ static void logTlm_flushToFile(void) {
 
     // If the rotation is needed, write the left data.
     if ((!isSpaceEnough) && isRotated) {
-        status = logTlm_writeToFile(pBuffer + numToFile * sizeElementInBuffer,
-                                    (countBufferCurrent - numToFile) *
-                                        sizeElementInBuffer);
+        status =
+            logTlm_writeToFile(pBuffer + numToFile * sizeElementInBuffer,
+                               (countBuffer - numToFile) * sizeElementInBuffer);
     }
 
     if (status == -1) {
@@ -305,44 +397,43 @@ static void logTlm_flushToFile(void) {
     }
 
     // Update the counters
-    countFile =
-        isRotated ? (countBufferCurrent - numToFile) : (countFile + numToFile);
-    countBufferCurrent = 0;
-
-    // Update the "isFlushing"
-    logTlm_lock();
-    isFlushing = false;
-    logTlm_unlock();
+    countFile = isRotated ? (countBuffer - numToFile) : (countFile + numToFile);
 }
 
-void logTlm_flush(bool isImmediate) {
+int logTlm_flush(void) {
     // Check there is the file or buffer available or not
-    if ((pFile == NULL) || (pBuffer == NULL)) {
-        return;
+    if ((pFile == NULL) || (pBufferCurrent == NULL)) {
+        return -1;
     }
 
-    // Update the "isFlushing"
-    logTlm_lock();
-    isFlushing = true;
-    logTlm_unlock();
-
-    if (isImmediate) {
-        logTlm_flushToFile();
+    // If the thread is running, check the data in buffer is flushing or not.
+    if (isThreadReady && logTlm_isFlushing()) {
+        return -1;
     }
+
+    logTlm_flushToFile(pBufferCurrent, countBufferCurrent);
+    countBufferCurrent = 0;
+
+    return 0;
 }
 
 bool logTlm_isFlushing(void) {
+
+    // Return false if there is no thread
+    if (!isThreadReady) {
+        return false;
+    }
 
     // By default, assume the flushing status is still ongoing.
     bool isFlushingOnGoing = true;
 
     if (pthread_mutex_trylock(&lock) == 0) {
-        isFlushingOnGoing = isFlushing;
+        isFlushingOnGoing = (isFullBuffer1 || isFullBuffer2);
         logTlm_unlock();
     }
 
     return isFlushingOnGoing;
-};
+}
 
 void logTlm_closeThread(void) {
 
@@ -385,16 +476,44 @@ static void *logTlm_run(void *pData) {
     sleepTime.tv_sec = 0;
 
     // Flush the data to file
-    bool isFlushingOnGoing;
+    bool doFlushBuffer1;
+    bool doFlushBuffer2;
     while (isThreadReady) {
-        isFlushingOnGoing = false;
+
+        // Check we need to flush the data or not
+        doFlushBuffer1 = false;
+        doFlushBuffer2 = false;
         if (pthread_mutex_trylock(&lock) == 0) {
-            isFlushingOnGoing = isFlushing;
+            doFlushBuffer1 = isFullBuffer1;
+            doFlushBuffer2 = isFullBuffer2;
             logTlm_unlock();
         }
 
-        if (isFlushingOnGoing) {
-            logTlm_flushToFile();
+        if (doFlushBuffer1 || doFlushBuffer2) {
+            // Flush the buffer 1
+            if (doFlushBuffer1) {
+                logTlm_flushToFile(pBuffer1, countBufferMax);
+
+                logTlm_lock();
+                isFullBuffer1 = false;
+                logTlm_unlock();
+            }
+
+            // Flush the buffer 2
+            if (doFlushBuffer2) {
+                logTlm_flushToFile(pBuffer2, countBufferMax);
+
+                logTlm_lock();
+                isFullBuffer2 = false;
+                logTlm_unlock();
+            }
+
+            // Re-assign the current buffer if needed. This might happen if
+            // logTlm_write() finds both of buffers are full.
+            if (pBufferCurrent == NULL) {
+                pBufferCurrent = pBuffer1;
+                countBufferCurrent = 0;
+            }
         } else {
             // Give other functions a chance to run
             nanosleep(&sleepTime, NULL);

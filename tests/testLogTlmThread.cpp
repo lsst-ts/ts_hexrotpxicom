@@ -47,35 +47,84 @@ TEST(LogTlmThread, logTlmRunFlushInNewThread) {
 
 static void *startWriter(void *pData) {
 
-    // Loop delay time (100 ms)
-    struct timespec sleepTime;
-    sleepTime.tv_nsec = 1e8;
-    sleepTime.tv_sec = 0;
+    int timesBothBuffersAreFull = 0;
 
     // Write the data
     struct DataThread data;
-    bool isFlushing = false;
     uint idx;
     for (idx = 0; idx < 8001; idx++) {
-        while (isFlushing) {
-            nanosleep(&sleepTime, NULL);
-            printf("Wait the flushing thread to do the job\n");
-
-            isFlushing = logTlm_isFlushing();
-        }
-
+        // Write the data
         data.idx = idx;
         data.valueArray[0] = 10 * idx + 0.1;
         data.valueArray[1] = 10 * idx + 0.2;
         data.valueSingle = 10 * idx + 0.3;
         if (logTlm_write(&data) == -1) {
-            logTlm_flush(false);
-            isFlushing = true;
+            EXPECT_EQ(nullptr, logTlm_getBuffer(0));
+            printf(
+                "Both buffers are full. I should see this just for 1 time.\n");
+
+            timesBothBuffersAreFull += 1;
+
+            // Wait for some time for the writing thread to flush the data
+            sleep(1);
+
+            EXPECT_NE(nullptr, logTlm_getBuffer(0));
+            EXPECT_FALSE(logTlm_isFlushing());
+            printf("Current buffer is not null after the flushing.\n");
         };
+
+        // Check the exchange of buffer. Note for some cases, the code will wait
+        // for some time. This is to let the telemetry thread have the chance
+        // to flush the data to file before the next writing of data. This is
+        // to simulate the condition that the controller writes the telemetry
+        // in a fixed frequency.
+        switch (idx) {
+        case 1:
+            EXPECT_EQ(logTlm_getBuffer(1), logTlm_getBuffer(0));
+            break;
+
+        case 1002:
+            EXPECT_EQ(logTlm_getBuffer(2), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        case 2000:
+            EXPECT_EQ(logTlm_getBuffer(1), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        case 3005:
+            EXPECT_EQ(logTlm_getBuffer(2), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        case 4001:
+            EXPECT_EQ(logTlm_getBuffer(1), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        case 5000:
+            EXPECT_EQ(logTlm_getBuffer(2), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        case 6007:
+            EXPECT_EQ(logTlm_getBuffer(1), logTlm_getBuffer(0));
+            sleep(1);
+            break;
+
+        default:
+            ;
+        }
     }
 
-    // Flush the final data
-    logTlm_flush(false);
+    EXPECT_EQ(logTlm_getBuffer(1), logTlm_getBuffer(0));
+    EXPECT_EQ(1, timesBothBuffersAreFull);
+
+    // Flush the final data. Wait for a short time to make sure the running
+    // thread is done.
+    sleep(1);
+    logTlm_flush();
 
     return 0;
 }
@@ -102,22 +151,22 @@ TEST_F(LogTlmThreadTest, logTlmRunFlushInNewThread) {
     EXPECT_FALSE(logTlm_isFlushing());
 
     // Check the current data in buffer
-    struct DataThread *datas = (struct DataThread *)logTlm_getBuffer();
+    struct DataThread *datas = (struct DataThread *)logTlm_getBuffer(0);
 
     EXPECT_EQ(8000, datas[0].idx);
     EXPECT_DOUBLE_EQ(80000.1, datas[0].valueArray[0]);
     EXPECT_DOUBLE_EQ(80000.2, datas[0].valueArray[1]);
     EXPECT_DOUBLE_EQ(80000.3, datas[0].valueSingle);
 
-    EXPECT_EQ(7001, datas[1].idx);
-    EXPECT_DOUBLE_EQ(70010.1, datas[1].valueArray[0]);
-    EXPECT_DOUBLE_EQ(70010.2, datas[1].valueArray[1]);
-    EXPECT_DOUBLE_EQ(70010.3, datas[1].valueSingle);
+    EXPECT_EQ(6001, datas[1].idx);
+    EXPECT_DOUBLE_EQ(60010.1, datas[1].valueArray[0]);
+    EXPECT_DOUBLE_EQ(60010.2, datas[1].valueArray[1]);
+    EXPECT_DOUBLE_EQ(60010.3, datas[1].valueSingle);
 
-    EXPECT_EQ(7002, datas[2].idx);
-    EXPECT_DOUBLE_EQ(70020.1, datas[2].valueArray[0]);
-    EXPECT_DOUBLE_EQ(70020.2, datas[2].valueArray[1]);
-    EXPECT_DOUBLE_EQ(70020.3, datas[2].valueSingle);
+    EXPECT_EQ(6002, datas[2].idx);
+    EXPECT_DOUBLE_EQ(60020.1, datas[2].valueArray[0]);
+    EXPECT_DOUBLE_EQ(60020.2, datas[2].valueArray[1]);
+    EXPECT_DOUBLE_EQ(60020.3, datas[2].valueSingle);
 
     // Check the file is rotated or not
     std::string fileCurrent = logTlm_getFilename();

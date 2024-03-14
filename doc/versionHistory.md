@@ -1,5 +1,9 @@
 # Version History
 
+0.1.6
+
+- Improve the `logTlm.c` with 2 buffers to avoid the lost of data.
+
 0.1.5
 
 - Add the `logTlm.c`.

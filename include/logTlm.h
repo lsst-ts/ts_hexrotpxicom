@@ -1,18 +1,21 @@
 #ifndef LOGTLM_H
 #define LOGTLM_H
 
+#include <stddef.h>
 #include <stdbool.h>
 
 // Get the filename.
 char *logTlm_getFilename(void);
 
-// Get the buffer.
-void *logTlm_getBuffer(void);
+// Get the buffer with the specific id, which equals 1 or 2. Put 0 if you want
+// to get the current buffer in use.
+// Return the specific buffer. Otherwise, NULL if no specific buffer found.
+void *logTlm_getBuffer(int id);
 
 // Free the buffer and set to NULL.
 void logTlm_freeBuffer(void);
 
-// Create the buffer.
+// Create the buffers.
 // Return 0 if success. Otherwise, -1.
 int logTlm_createBuffer(int sizeBuffer, size_t sizeElement);
 
@@ -26,23 +29,21 @@ int logTlm_close(void);
 int logTlm_open(char *pathDir, char *formatFilename, int recordPerFile);
 
 // Write the data. The size of data should be the same as "sizeElement" in
-// logTlm_open(). Do not call this function when the flushing is ongoing.
-// You can check this by calling the logTlm_isFlushing().
+// logTlm_open().
 // Return 0 if success and there is still the space in buffer to write.
 // Return -1 if success but the space is full after this writing.
 // Return -2 if no buffer or file to write.
 int logTlm_write(void *pData);
 
-// Flush the data in buffer to file. If the logTlm_write() and
-// flushing to file are at the same thread, put the "isImmediate" to be ture.
-// Otherwise, false, and the related flush will happen in the thread created by
-// logTlm_runFlushInNewThread().
-void logTlm_flush(bool isImmediate);
+// Flush the data in buffer to file.
+// Return 0 if success. Otherwise, -1.
+// Note: If there is the running thread and the data is still under the
+// flushing, you will get -1 as well.
+int logTlm_flush(void);
 
 // The data in buffer is flushing to the file or not. If the logTlm_write() and
 // flushing to file are at the different threads, you need to call this function
-// to know the flushing status. Only when the system is not flushing, you can
-// continue to write the new data.
+// to know the flushing status.
 // Return true if yes. Otherwise, false.
 bool logTlm_isFlushing(void);
 

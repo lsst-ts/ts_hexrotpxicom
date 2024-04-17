@@ -22,7 +22,7 @@ char *joinStr(char *str1, char *str2) {
     char *strJoin = (char *)calloc(lengStrJoin, sizeof(char));
 
     strncpy(strJoin, str1, strlen(str1) + 1);
-    strncat(strJoin, str2, strlen(str2) + 1);
+    strncat(strJoin, str2, lengStrJoin - strlen(str1));
 
     return strJoin;
 }

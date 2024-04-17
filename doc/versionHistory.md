@@ -1,5 +1,9 @@
 # Version History
 
+0.1.7
+
+- Fix the possible overflow of `joinStr()`.
+
 0.1.6
 
 - Improve the `logTlm.c` with 2 buffers to avoid the lost of data.

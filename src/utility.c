@@ -42,3 +42,36 @@ bool isDir(const char *pDirPath) {
 bool isLimitSwitchOn(uint32_t pinsState, uint32_t limitSwitchMask) {
     return (pinsState & limitSwitchMask) != limitSwitchMask;
 }
+
+void calcTimeDiff(struct timespec *pTimeStart, struct timespec *pTimeEnd,
+                  struct timespec *pTimeDiff) {
+
+    const long SEC_TO_NS = 1000000000;
+    if ((pTimeEnd->tv_nsec - pTimeStart->tv_nsec) < 0) {
+        pTimeDiff->tv_sec = pTimeEnd->tv_sec - pTimeStart->tv_sec - 1;
+        pTimeDiff->tv_nsec =
+            SEC_TO_NS + pTimeEnd->tv_nsec - pTimeStart->tv_nsec;
+    } else {
+        pTimeDiff->tv_sec = pTimeEnd->tv_sec - pTimeStart->tv_sec;
+        pTimeDiff->tv_nsec = pTimeEnd->tv_nsec - pTimeStart->tv_nsec;
+    }
+}
+
+int calcTimeLeft(struct timespec *pTimePassed, long maxTimeInNs,
+                 struct timespec *pTimeLeft) {
+
+    const long SEC_TO_NS = 1000000000;
+    long passedTimeInNs =
+        pTimePassed->tv_sec * SEC_TO_NS + pTimePassed->tv_nsec;
+    if (passedTimeInNs >= maxTimeInNs) {
+        pTimeLeft->tv_sec = 0;
+        pTimeLeft->tv_nsec = 0;
+        return -1;
+    } else {
+        long leftTimeInNs = maxTimeInNs - passedTimeInNs;
+        pTimeLeft->tv_sec = leftTimeInNs / SEC_TO_NS;
+        pTimeLeft->tv_nsec = leftTimeInNs % SEC_TO_NS;
+    }
+
+    return 0;
+}

@@ -1,5 +1,9 @@
 # Version History
 
+0.1.8
+
+- Add the `calcTimeDiff()` and `calcTimeLeft()`.
+
 0.1.7
 
 - Fix the possible overflow of `joinStr()`.

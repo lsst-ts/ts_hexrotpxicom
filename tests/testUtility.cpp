@@ -87,3 +87,42 @@ TEST(utility, isLimitSwitchOn) {
     limitSwitchHit = isLimitSwitchOn(0x3BFEFF, mask);
     EXPECT_FALSE(limitSwitchHit);
 }
+
+TEST(utility, calcTimeDiff) {
+    struct timespec timeStart, timeEnd, timeDiff;
+    timeStart.tv_sec = 1;
+    timeStart.tv_nsec = 100;
+
+    timeEnd.tv_sec = 2;
+    timeEnd.tv_nsec = 123;
+
+    calcTimeDiff(&timeStart, &timeEnd, &timeDiff);
+
+    EXPECT_EQ(1, timeDiff.tv_sec);
+    EXPECT_EQ(23, timeDiff.tv_nsec);
+
+    timeEnd.tv_nsec = 12;
+    calcTimeDiff(&timeStart, &timeEnd, &timeDiff);
+
+    EXPECT_EQ(0, timeDiff.tv_sec);
+    EXPECT_EQ(999999912, timeDiff.tv_nsec);
+}
+
+TEST(utility, calcTimeLeft) {
+    struct timespec timePassed, timeLeft;
+    timePassed.tv_sec = 0;
+    timePassed.tv_nsec = 1000;
+
+    EXPECT_EQ(-1, calcTimeLeft(&timePassed, 100, &timeLeft));
+    EXPECT_EQ(0, timeLeft.tv_sec);
+    EXPECT_EQ(0, timeLeft.tv_nsec);
+
+    EXPECT_EQ(0, calcTimeLeft(&timePassed, 2123, &timeLeft));
+    EXPECT_EQ(0, timeLeft.tv_sec);
+    EXPECT_EQ(1123, timeLeft.tv_nsec);
+
+    timePassed.tv_sec = 1;
+    EXPECT_EQ(0, calcTimeLeft(&timePassed, 3000000123, &timeLeft));
+    EXPECT_EQ(1, timeLeft.tv_sec);
+    EXPECT_EQ(999999123, timeLeft.tv_nsec);
+}

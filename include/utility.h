@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 // Get the module path based on the environment variable (PXI_CNTLR_HOME).
 char *getModulePath(void);
@@ -22,5 +23,16 @@ bool isDir(const char *pDirPath);
 
 // Is the limit switch on or not. Return true if it is on.
 bool isLimitSwitchOn(uint32_t pinsState, uint32_t limitSwitchMask);
+
+// Calculate the time difference between the start and end timestamps.
+void calcTimeDiff(struct timespec *pTimeStart, struct timespec *pTimeEnd,
+                  struct timespec *pTimeDiff);
+
+// Calculate the left time based on the passed time and the maximum time in
+// nanoseconds.
+// Return 0 if there is the time left. Otherwise, return -1 and the left time is
+// 0.
+int calcTimeLeft(struct timespec *pTimePassed, long maxTimeInNs,
+                 struct timespec *pTimeLeft);
 
 #endif // UTILITY_H

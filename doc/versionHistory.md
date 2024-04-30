@@ -1,5 +1,9 @@
 # Version History
 
+0.1.9
+
+- Use the **Coverage** plug-in to replace the **Cobertura** plug-in in `Jenkinsfile`.
+
 0.1.8
 
 - Add the `calcTimeDiff()` and `calcTimeLeft()`.

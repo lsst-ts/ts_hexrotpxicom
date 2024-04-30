@@ -63,7 +63,9 @@ pipeline {
             )
 
             // Publish the coverage report
-            cobertura coberturaReportFile: 'jenkinsReportCov/*.xml'
+            recordCoverage(
+                tools: [[parser: 'COBERTURA', pattern: 'jenkinsReportCov/*.xml']]
+            )
         }
 
         cleanup {

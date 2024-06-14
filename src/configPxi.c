@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <yaml.h>
 #include <syslog.h>
+#include <yaml.h>
 
-#include "utility.h"
 #include "configPxi.h"
+#include "utility.h"
 
 // Configuration file path
 static char *pgStrConfigFilePath = "";

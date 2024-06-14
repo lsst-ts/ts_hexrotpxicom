@@ -1,13 +1,13 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
-#include <syslog.h>
-#include <pthread.h>
 
-#include "utility.h"
 #include "logTlm.h"
+#include "utility.h"
 
 // File name
 static char *filename = "";

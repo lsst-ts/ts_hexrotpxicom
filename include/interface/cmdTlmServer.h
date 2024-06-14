@@ -1,10 +1,10 @@
 #ifndef CMDTLMSERVER_H
 #define CMDTLMSERVER_H
 
-#include <stdbool.h>
-#include <pthread.h>
 #include <glib.h>
 #include <mqueue.h>
+#include <pthread.h>
+#include <stdbool.h>
 
 #include "circular_buffer.h"
 

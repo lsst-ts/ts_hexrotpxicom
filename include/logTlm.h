@@ -1,8 +1,8 @@
 #ifndef LOGTLM_H
 #define LOGTLM_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 // Get the filename.
 char *logTlm_getFilename(void);

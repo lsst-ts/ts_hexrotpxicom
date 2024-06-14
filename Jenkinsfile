@@ -4,7 +4,7 @@ pipeline {
 
     agent {
         docker {
-            image 'lsstts/rotator_pxi:v0.4'
+            image 'lsstts/rotator_pxi:v0.5'
         }
     }
 

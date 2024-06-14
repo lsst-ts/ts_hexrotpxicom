@@ -4,9 +4,9 @@
 // Modified from the "examples/c/circular_buffer/circular_buffer.h" under:
 // https://github.com/embeddedartistry/embedded-resources
 
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "commandStructure.h"
 

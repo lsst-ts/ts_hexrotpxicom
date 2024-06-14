@@ -2,11 +2,11 @@
 // "examples/c/circular_buffer/circular_buffer_no_modulo_threadsafe.c" under:
 // https://github.com/embeddedartistry/embedded-resources
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <pthread.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <syslog.h>
 
 #include "circular_buffer.h"

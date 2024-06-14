@@ -113,8 +113,7 @@ static void *startWriter(void *pData) {
             sleep(1);
             break;
 
-        default:
-            ;
+        default:;
         }
     }
 

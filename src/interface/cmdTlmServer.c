@@ -1,17 +1,17 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/socket.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <syslog.h>
-#include <errno.h>
+#include <unistd.h>
 
-#include "utility.h"
-#include "tcpServer.h"
 #include "cmdTlmServer.h"
+#include "tcpServer.h"
+#include "utility.h"
 
 // Exit the running thread. The arguments are:
 // - thread: running thread
@@ -27,8 +27,9 @@ static void cmdTlmServer_exitThread(pthread_t thread, bool *pIsReady,
     }
 
     if (error != 0) {
-        syslog(LOG_ERR, "Failed the waiting of %s thread in the %s server. "
-                        "Cancelling it...",
+        syslog(LOG_ERR,
+               "Failed the waiting of %s thread in the %s server. "
+               "Cancelling it...",
                pNameThread, pNameServer);
 
         error = pthread_cancel(thread);
@@ -175,8 +176,9 @@ static int cmdTlmServer_prepareMsgQueue(serverInfo_t *pServerInfo,
         MAX_NUM_MSG_CMD_STATUS, (long)sizeof(commandStatusStructure_t),
         pServerInfo->pQueueNameCmdStatus);
     if (pServerInfo->msgQueueCmdStatus == (mqd_t)(-1)) {
-        syslog(LOG_ERR, "Failed to create the message queue of command status "
-                        "in %s server.",
+        syslog(LOG_ERR,
+               "Failed to create the message queue of command status "
+               "in %s server.",
                pServerInfo->pName);
         return -1;
     }
@@ -446,8 +448,9 @@ static void *cmdTlmServer_run(void *pData) {
                 error = setsockopt(pServerInfo->socketConnect, IPPROTO_TCP,
                                    TCP_NODELAY, &optVal, sizeof(optVal));
                 if (error == -1) {
-                    syslog(LOG_ERR, "Failed to set the TCP_NODELAY in "
-                                    "connected socket in the %s server",
+                    syslog(LOG_ERR,
+                           "Failed to set the TCP_NODELAY in "
+                           "connected socket in the %s server",
                            pServerInfo->pName);
 
                     cmdTlmServer_closeConn(pServerInfo, &fds);
@@ -474,8 +477,9 @@ static void *cmdTlmServer_run(void *pData) {
             if (pServerInfo->isCloseConnDetected) {
                 cmdTlmServer_closeConn(pServerInfo, &fds);
 
-                syslog(LOG_NOTICE, "The telemetry thread found the connection "
-                                   "is closed in the %s server.",
+                syslog(LOG_NOTICE,
+                       "The telemetry thread found the connection "
+                       "is closed in the %s server.",
                        pServerInfo->pName);
                 break;
             }

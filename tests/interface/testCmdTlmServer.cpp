@@ -1,14 +1,14 @@
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <syslog.h>
 
 #include "gtest/gtest.h"
 
 extern "C" {
 #include "circular_buffer.h"
-#include "tcpServer.h"
 #include "cmdTlmServer.h"
+#include "tcpServer.h"
 }
 
 volatile cbuf_handle_t cmdMsgBuffer;

@@ -1,12 +1,12 @@
-#include <sys/socket.h>
 #include <cstring>
+#include <sys/socket.h>
 #include <syslog.h>
 
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "utility.h"
 #include "configPxi.h"
+#include "utility.h"
 }
 
 struct ConfigPxiTest : testing::Test {

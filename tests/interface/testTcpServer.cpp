@@ -1,8 +1,8 @@
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include "gtest/gtest.h"
 

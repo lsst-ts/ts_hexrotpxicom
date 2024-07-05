@@ -24,7 +24,8 @@ BINDIR := $(PXI_CNTLR_HOME)/bin
 # Include header file directories
 usrLocalInc := /usr/local/include
 INC.main := -I $(PXI_CNTLR_HOME)/include  \
-    -I $(PXI_CNTLR_HOME)/include/interface
+    -I $(PXI_CNTLR_HOME)/include/interface \
+    -I $(PXI_CNTLR_HOME)/include/drives
 INC.userlocal := -I $(usrLocalInc)
 INC.glib := -I /usr/include/glib-2.0 -I /usr/lib64/glib-2.0/include
 INC := $(INC.main) $(INC.userlocal) $(INC.glib)
@@ -35,14 +36,15 @@ COMPILE.c := $(CC) $(CPPFLAGS) $(INC) -c
 COMPILE.cc := $(CXX) $(CPPFLAGS) -std=c++1y $(INC) -c
 
 # Dynamic library flags
-LDLIBDIR.yaml := /usr/local/lib
-LDFLAGS := -L $(LDLIBDIR.yaml)
+LDLIBDIR.lib := /usr/local/lib
+LDFLAGS := -L $(LDLIBDIR.lib)
 
 # Dynamic libraries
-LDLIBS.yaml := -lyaml -Wl,-rpath,$(LDLIBDIR.yaml)
+LDLIBS.lib := -lyaml -Wl,-rpath,$(LDLIBDIR.lib)
 LDLIBS.glib := -lglib-2.0
 LDLIBS.mq := -lrt
-LDLIBS := $(LDLIBS.yaml) $(LDLIBS.glib) $(LDLIBS.mq)
+LDLIBS.ethercat := -lethercat
+LDLIBS := $(LDLIBS.lib) $(LDLIBS.glib) $(LDLIBS.mq) $(LDLIBS.ethercat)
 
 #----------------------------------------------------------------------------
 # Setting of test

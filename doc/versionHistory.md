@@ -1,5 +1,10 @@
 # Version History
 
+0.2.1
+
+- Copy and modify the **ds402.h** and **copley.h** from **ts_rotator_controller**.
+- Add the **driveTool.c**.
+
 0.2.0
 
 - Reformat the code.

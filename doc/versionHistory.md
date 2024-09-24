@@ -1,5 +1,9 @@
 # Version History
 
+0.2.2
+
+- Add the `waitNtpLeapSeconds()`, `driveTool_areOperationEnabled()`, and `driveTool_nextCommandToGoalState()`.
+
 0.2.1
 
 - Copy and modify the **ds402.h** and **copley.h** from **ts_rotator_controller**.

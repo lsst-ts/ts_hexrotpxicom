@@ -126,3 +126,5 @@ TEST(utility, calcTimeLeft) {
     EXPECT_EQ(1, timeLeft.tv_sec);
     EXPECT_EQ(999999123, timeLeft.tv_nsec);
 }
+
+TEST(utility, waitNtpLeapSeconds) { EXPECT_GE(waitNtpLeapSeconds(1, 1), -1); }

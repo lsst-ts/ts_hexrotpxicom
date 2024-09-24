@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 
 #include "copley.h"
@@ -219,4 +220,126 @@ int driveTool_getSdoParamS32(ec_slave_config_t *pSc, uint16_t index,
     }
 
     return -1;
+}
+
+bool driveTool_areOperationEnabled(ds402_state states[], int nStates) {
+    int idx;
+    for (idx = 0; idx < nStates; idx++) {
+        if (states[idx] != DS402_STATE_OPERATION_ENABLED) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Return the next command to the goal state from the disabled state.
+static int driveTool_nextCommandFromDisabled(ds402_state goalState) {
+
+    switch (goalState) {
+    case DS402_STATE_SWITCH_ON_DISABLED:
+        return DS402_COMMAND_DISABLE_VOLTAGE;
+    case DS402_STATE_READY_TO_SWITCH_ON:
+    case DS402_STATE_SWITCHED_ON:
+    case DS402_STATE_OPERATION_ENABLED:
+        return DS402_COMMAND_SHUTDOWN;
+    default:
+        syslog(LOG_ERR, "Don't know how to get from %s to %s",
+               driveTool_getDs402StateName(DS402_STATE_SWITCH_ON_DISABLED),
+               driveTool_getDs402StateName(goalState));
+        return DS402_COMMAND_SHUTDOWN;
+    }
+}
+
+// Return the next command to the goal state from the ready-to-switch-on state.
+static int driveTool_nextCommandFromReadyToSwitchOn(ds402_state goalState) {
+
+    switch (goalState) {
+    case DS402_STATE_SWITCH_ON_DISABLED:
+        return DS402_COMMAND_DISABLE_VOLTAGE;
+    case DS402_STATE_READY_TO_SWITCH_ON:
+        return DS402_COMMAND_SHUTDOWN;
+    case DS402_STATE_SWITCHED_ON:
+    case DS402_STATE_OPERATION_ENABLED:
+        return DS402_COMMAND_SWITCH_ON;
+    default:
+        syslog(LOG_ERR, "Don't know how to get from %s to %s",
+               driveTool_getDs402StateName(DS402_STATE_READY_TO_SWITCH_ON),
+               driveTool_getDs402StateName(goalState));
+        return DS402_COMMAND_SHUTDOWN;
+    }
+}
+
+// Return the next command to the goal state from the switched-on state.
+static int driveTool_nextCommandFromSwitchedOn(ds402_state goalState) {
+
+    switch (goalState) {
+    case DS402_STATE_SWITCH_ON_DISABLED:
+    case DS402_STATE_READY_TO_SWITCH_ON:
+        return DS402_COMMAND_SHUTDOWN;
+    case DS402_STATE_SWITCHED_ON:
+        return DS402_COMMAND_SWITCH_ON;
+    case DS402_STATE_OPERATION_ENABLED:
+        return DS402_COMMAND_ENABLE_OPERATION;
+    default:
+        syslog(LOG_ERR, "Don't know how to get from %s to %s",
+               driveTool_getDs402StateName(DS402_STATE_SWITCHED_ON),
+               driveTool_getDs402StateName(goalState));
+        return DS402_COMMAND_SHUTDOWN;
+    }
+}
+
+// Return the next command to the goal state from the enabled state.
+static int driveTool_nextCommandFromEnabled(ds402_state goalState) {
+
+    switch (goalState) {
+    case DS402_STATE_SWITCH_ON_DISABLED:
+    case DS402_STATE_READY_TO_SWITCH_ON:
+        return DS402_COMMAND_SHUTDOWN;
+    case DS402_STATE_SWITCHED_ON:
+        return DS402_COMMAND_DISABLE_OPERATION;
+    case DS402_STATE_OPERATION_ENABLED:
+        return DS402_COMMAND_ENABLE_OPERATION;
+    default:
+        syslog(LOG_ERR, "Don't know how to get from %s to %s",
+               driveTool_getDs402StateName(DS402_STATE_OPERATION_ENABLED),
+               driveTool_getDs402StateName(goalState));
+        return DS402_COMMAND_SHUTDOWN;
+    }
+}
+
+// Return the next command to the goal state from the fault state.
+static int driveTool_nextCommandFromFault(ds402_state goalState) {
+
+    switch (goalState) {
+    case DS402_STATE_FAULT:
+        return DS402_COMMAND_SHUTDOWN;
+    case DS402_STATE_SWITCH_ON_DISABLED:
+        return DS402_COMMAND_RESET_FAULT;
+    default:
+        return DS402_COMMAND_NOCHANGE;
+    }
+}
+
+int driveTool_nextCommandToGoalState(ds402_state stateCurrent,
+                                     ds402_state stateGoal) {
+
+    switch (stateCurrent) {
+    case DS402_STATE_SWITCH_ON_DISABLED:
+        return driveTool_nextCommandFromDisabled(stateGoal);
+    case DS402_STATE_READY_TO_SWITCH_ON:
+        return driveTool_nextCommandFromReadyToSwitchOn(stateGoal);
+    case DS402_STATE_SWITCHED_ON:
+        return driveTool_nextCommandFromSwitchedOn(stateGoal);
+    case DS402_STATE_OPERATION_ENABLED:
+        return driveTool_nextCommandFromEnabled(stateGoal);
+    case DS402_STATE_FAULT:
+    case DS402_STATE_FAULT_REACTION_ACTIVE:
+        return driveTool_nextCommandFromFault(stateGoal);
+    case DS402_STATE_QUICK_STOP_ACTIVE:
+        return DS402_COMMAND_NOCHANGE;
+    default:
+        syslog(LOG_ERR, "Unknown DS402 state %d", stateCurrent);
+        return -1;
+    }
 }

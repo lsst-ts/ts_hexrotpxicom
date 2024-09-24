@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "utility.h"
 
@@ -74,4 +75,37 @@ int calcTimeLeft(struct timespec *pTimePassed, long maxTimeInNs,
     }
 
     return 0;
+}
+
+// Get the leap seconds. Return -1 if it fails.
+static int getLeapSeconds(void) {
+    struct timespec ts_tai, ts_host;
+
+    if (clock_gettime(CLOCK_TAI, &ts_tai) != 0) {
+        return -1;
+    }
+
+    if (clock_gettime(CLOCK_REALTIME, &ts_host) != 0) {
+        return -1;
+    }
+
+    return (int)(ts_tai.tv_sec - ts_host.tv_sec);
+}
+
+int waitNtpLeapSeconds(int timeout, int checkInterval) {
+    int leapSeconds = getLeapSeconds();
+    while ((timeout > 0) && (leapSeconds <= 0)) {
+        if (leapSeconds < 0) {
+            return -1;
+        }
+
+        sleep(checkInterval);
+        timeout -= checkInterval;
+    }
+
+    if (leapSeconds > 0) {
+        return leapSeconds;
+    } else {
+        return -1;
+    }
 }

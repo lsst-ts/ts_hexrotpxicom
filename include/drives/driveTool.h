@@ -2,6 +2,7 @@
 #define DRIVETOOL_H
 
 #include <ecrt.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "ds402.h"
@@ -37,5 +38,16 @@ int driveTool_getSdoParamS16(ec_slave_config_t *pSc, uint16_t index,
 // Return 0 on success, -1 on failure.
 int driveTool_getSdoParamS32(ec_slave_config_t *pSc, uint16_t index,
                              uint8_t subindex, int32_t *pValue);
+
+// Drives are operation enabled or not according to the DS402 states.
+// The user needs to provide the DS402 "states" and the number of states
+// (nStates).
+// Return True if yes, else False.
+bool driveTool_areOperationEnabled(ds402_state states[], int nStates);
+
+// Get the next command to the goal state according to the current state.
+// Return the next command. If error, return -1.
+int driveTool_nextCommandToGoalState(ds402_state stateCurrent,
+                                     ds402_state stateGoal);
 
 #endif // DRIVETOOL_H

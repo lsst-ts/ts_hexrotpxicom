@@ -35,4 +35,9 @@ void calcTimeDiff(struct timespec *pTimeStart, struct timespec *pTimeEnd,
 int calcTimeLeft(struct timespec *pTimePassed, long maxTimeInNs,
                  struct timespec *pTimeLeft);
 
+// Wait for the NTP leap seconds. Check the leap seconds every checkInterval
+// seconds before the timeout (in seconds).
+// Return the leap seconds if it succeeds. Otherwise, return -1.
+int waitNtpLeapSeconds(int timeout, int checkInterval);
+
 #endif // UTILITY_H

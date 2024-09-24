@@ -101,6 +101,7 @@ typedef struct {
 } ds402_control_word;
 
 enum {
+    DS402_COMMAND_NOCHANGE = 0x0,
     DS402_COMMAND_SHUTDOWN = 0x6,
     DS402_COMMAND_SWITCH_ON = 0x7,
     DS402_COMMAND_DISABLE_VOLTAGE = 0x4,

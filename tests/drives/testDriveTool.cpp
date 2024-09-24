@@ -98,3 +98,23 @@ TEST(driveTool, getDs402StateName) {
     EXPECT_STREQ("Unknown state",
                  driveTool_getDs402StateName(DS402_STATE_START));
 }
+
+TEST(driveTool, areOperationEnabled) {
+    ds402_state statesFail[2] = {DS402_STATE_OPERATION_ENABLED,
+                                 DS402_STATE_NOT_READY_TO_SWITCH_ON};
+
+    EXPECT_FALSE(driveTool_areOperationEnabled(statesFail, 2));
+
+    ds402_state statesSucess[2] = {DS402_STATE_OPERATION_ENABLED,
+                                   DS402_STATE_OPERATION_ENABLED};
+    EXPECT_TRUE(driveTool_areOperationEnabled(statesSucess, 2));
+}
+
+TEST(driveTool, nextCommandToGoalState) {
+    EXPECT_EQ(DS402_COMMAND_SHUTDOWN,
+              driveTool_nextCommandToGoalState(DS402_STATE_SWITCH_ON_DISABLED,
+                                               DS402_STATE_OPERATION_ENABLED));
+
+    EXPECT_EQ(-1, driveTool_nextCommandToGoalState(
+                      DS402_STATE_START, DS402_STATE_OPERATION_ENABLED));
+}

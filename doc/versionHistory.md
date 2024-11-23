@@ -1,5 +1,9 @@
 # Version History
 
+0.2.3
+
+- Add the `driveTool_areSwitchOnDisabled()`.
+
 0.2.2
 
 - Add the `waitNtpLeapSeconds()`, `driveTool_areOperationEnabled()`, and `driveTool_nextCommandToGoalState()`.

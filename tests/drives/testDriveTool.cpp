@@ -110,6 +110,17 @@ TEST(driveTool, areOperationEnabled) {
     EXPECT_TRUE(driveTool_areOperationEnabled(statesSucess, 2));
 }
 
+TEST(driveTool, areSwitchOnDisabled) {
+    ds402_state statesFail[2] = {DS402_STATE_SWITCH_ON_DISABLED,
+                                 DS402_STATE_NOT_READY_TO_SWITCH_ON};
+
+    EXPECT_FALSE(driveTool_areSwitchOnDisabled(statesFail, 2));
+
+    ds402_state statesSucess[2] = {DS402_STATE_SWITCH_ON_DISABLED,
+                                   DS402_STATE_SWITCH_ON_DISABLED};
+    EXPECT_TRUE(driveTool_areSwitchOnDisabled(statesSucess, 2));
+}
+
 TEST(driveTool, nextCommandToGoalState) {
     EXPECT_EQ(DS402_COMMAND_SHUTDOWN,
               driveTool_nextCommandToGoalState(DS402_STATE_SWITCH_ON_DISABLED,

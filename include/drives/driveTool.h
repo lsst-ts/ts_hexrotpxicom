@@ -45,6 +45,12 @@ int driveTool_getSdoParamS32(ec_slave_config_t *pSc, uint16_t index,
 // Return True if yes, else False.
 bool driveTool_areOperationEnabled(ds402_state states[], int nStates);
 
+// Drives are switch-on-disabled or not according to the DS402 states.
+// The user needs to provide the DS402 "states" and the number of states
+// (nStates).
+// Return True if yes, else False.
+bool driveTool_areSwitchOnDisabled(ds402_state states[], int nStates);
+
 // Get the next command to the goal state according to the current state.
 // Return the next command. If error, return -1.
 int driveTool_nextCommandToGoalState(ds402_state stateCurrent,

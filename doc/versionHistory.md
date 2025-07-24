@@ -1,5 +1,9 @@
 # Version History
 
+0.2.4
+
+- Add the `driveTool_sdoDownload()`.
+
 0.2.3
 
 - Add the `driveTool_areSwitchOnDisabled()`.

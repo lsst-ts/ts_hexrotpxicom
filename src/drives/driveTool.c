@@ -3,6 +3,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "copley.h"
 #include "driveTool.h"
@@ -357,4 +358,26 @@ int driveTool_nextCommandToGoalState(ds402_state stateCurrent,
         syslog(LOG_ERR, "Unknown DS402 state %d", stateCurrent);
         return -1;
     }
+}
+
+int driveTool_sdoDownload(ec_master_t *master, uint16_t slave_position,
+                          uint16_t index, uint8_t subindex, const uint8_t *data,
+                          size_t data_size, uint32_t *abort_code,
+                          int maxRetryTimes) {
+
+    int count = 0;
+    int ret = 0;
+    while (count < maxRetryTimes) {
+        ret = ecrt_master_sdo_download(master, slave_position, index, subindex,
+                                       data, data_size, abort_code);
+        if (ret == 0) {
+            break;
+        }
+
+        count++;
+
+        sleep(1);
+    }
+
+    return ret;
 }

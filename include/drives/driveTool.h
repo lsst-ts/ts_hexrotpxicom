@@ -57,13 +57,17 @@ int driveTool_nextCommandToGoalState(ds402_state stateCurrent,
                                      ds402_state stateGoal);
 
 // Executes an SDO download request to write data to a slave with a maximum
-// retry times (maxRetryTimes) as a wrapper of ecrt_master_sdo_download().
-// There will be a sleep time of 1 sec between retries.
+// retry times (maxRetryTimes) and sleep time in seconds (sleepTime) as a
+// wrapper of ecrt_master_sdo_download().
+//
+// This function is required after upgrading the Copley drives to the latest
+// firmware version (v4.36), which is easy to fail the SDO download from the
+// EtherCAT master by EtherLab.
 //
 // Return 0 on success, or a negative error code on failure.
 int driveTool_sdoDownload(ec_master_t *master, uint16_t slave_position,
                           uint16_t index, uint8_t subindex, const uint8_t *data,
                           size_t data_size, uint32_t *abort_code,
-                          int maxRetryTimes);
+                          int maxRetryTimes, unsigned int sleepTime);
 
 #endif // DRIVETOOL_H

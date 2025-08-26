@@ -1,6 +1,8 @@
 ---
 # Double value
 VAL_DOUBLE: 1.2
+VAL_DOUBLE_OTHER: 1.3
 
 # Integer value
 VAL_INTEGER: 2
+VAL_INTEGER_OTHER: 3

@@ -1,5 +1,9 @@
 # Version History
 
+0.2.6
+
+- Improve the `configPxi_getSetting()`.
+
 0.2.5
 
 - Improve the `driveTool_sdoDownload()`.

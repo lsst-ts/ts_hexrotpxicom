@@ -54,7 +54,8 @@ char *configPxi_getSetting(const char *pFilePath, const char *pSettingName) {
                 // Look for the key
                 value = event.data.scalar.value;
                 valueSize = event.data.scalar.length;
-                if (strncmp((char *)value, pSettingName, valueSize) == 0) {
+                if ((strlen(pSettingName) == valueSize) &&
+                    (strncmp((char *)value, pSettingName, valueSize) == 0)) {
                     foundKey = true;
 
                     // The value of key will be in the next YAML_SCALAR_EVENT

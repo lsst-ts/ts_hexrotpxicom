@@ -61,8 +61,10 @@ TEST_F(ConfigPxiTest, configPxiGetSettingWrongFile) {
 
 TEST_F(ConfigPxiTest, configPxiGetValDouble) {
     EXPECT_DOUBLE_EQ(1.2, configPxi_getValDouble("VAL_DOUBLE"));
+    EXPECT_DOUBLE_EQ(1.3, configPxi_getValDouble("VAL_DOUBLE_OTHER"));
 }
 
 TEST_F(ConfigPxiTest, configPxiGetValInt) {
     EXPECT_EQ(2, configPxi_getValInt("VAL_INTEGER"));
+    EXPECT_EQ(3, configPxi_getValInt("VAL_INTEGER_OTHER"));
 }

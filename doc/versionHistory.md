@@ -1,5 +1,9 @@
 # Version History
 
+0.2.7
+
+- Use the `rubincr.lsst.org` for docker image in `Jenkinsfile`.
+
 0.2.6
 
 - Improve the `configPxi_getSetting()`.
